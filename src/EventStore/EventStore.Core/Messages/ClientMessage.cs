@@ -507,6 +507,9 @@ namespace EventStore.Core.Messages
             public readonly int MaxCount;
             public readonly bool ResolveLinks;
 
+            /// <param name="fromEventNumber">event number to start reading from 
+            /// or -1 to start from the last known event number. NOTE: event number 0 
+            /// is the last event to be read in this order (if it still exists)</param>
             public ReadStreamEventsBackward(Guid correlationId,
                                              IEnvelope envelope,
                                              string eventStreamId,

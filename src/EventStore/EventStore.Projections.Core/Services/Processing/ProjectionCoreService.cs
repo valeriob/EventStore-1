@@ -62,7 +62,8 @@ namespace EventStore.Projections.Core.Services.Processing
                                          IHandle<ClientMessage.ReadStreamEventsForwardCompleted>,
                                          IHandle<ClientMessage.ReadAllEventsForwardCompleted>,
                                          IHandle<ClientMessage.ReadStreamEventsBackwardCompleted>,
-                                         IHandle<ClientMessage.WriteEventsCompleted>
+                                         IHandle<ClientMessage.WriteEventsCompleted>,
+                                         IHandle<HttpMessage.HttpCompleted>
 
 
     {
@@ -266,6 +267,11 @@ namespace EventStore.Projections.Core.Services.Processing
             EventReader reader;
             if (_eventReaders.TryGetValue(message.CorrelationId, out reader))
                 reader.Handle(message);
+        }
+
+        public void Handle(HttpMessage.HttpCompleted message)
+        {
+            throw new NotImplementedException();
         }
 
         public void Handle(ProjectionCoreServiceMessage.CommittedEventDistributed message)
