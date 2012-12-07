@@ -165,6 +165,7 @@ namespace EventStore.Projections.Core.Services.Processing
                 _readDispatcher;
 
             private readonly string _partitionStateStream;
+            private byte[] _state;
 
 
             public ReadPartitionState(
@@ -179,9 +180,7 @@ namespace EventStore.Projections.Core.Services.Processing
 
             protected override void RequestRead()
             {
-                _readDispatcher.Publish(
-                    new ClientMessage.ReadStreamEventsBackward(
-                        Guid.NewGuid(), _readDispatcher.Envelope, _partitionStateStream, _atPosition, 1, false), ReadCompleted);
+                RequestNext(-1);
             }
 
             private void ReadCompleted(
@@ -189,8 +188,34 @@ namespace EventStore.Projections.Core.Services.Processing
             {
                 if (readStreamEventsBackwardCompleted.Result == RangeReadResult.Success)
                 {
+                    if (readStreamEventsBackwardCompleted.Events.Length == 1)
+                    {
+                        var @event = readStreamEventsBackwardCompleted.Events[0].Event;
+                        var metadata = @event.Metadata.ParseJson<CheckpointTag>();
+                        if (metadata > _reader._atPosition)
+                        {
+                            RequestNext(readStreamEventsBackwardCompleted.NextEventNumber);
+                            return; // do not complete stage yet
+                        }
+                        _state = @event.Data;
+                        // we found required state record
+                        // complete stage
+                    }
+                    if (!readStreamEventsBackwardCompleted.IsEndOfStream)
+                    {
+                        RequestNext(readStreamEventsBackwardCompleted.NextEventNumber);
+                        return; // do not complete stage yet
+                    }
                 }
                 CompleteStage();
+            }
+
+            private void RequestNext(int nextEventNumber)
+            {
+                _readDispatcher.Publish(
+                    new ClientMessage.ReadStreamEventsBackward(
+                        Guid.NewGuid(), _readDispatcher.Envelope, _partitionStateStream,
+                        nextEventNumber, 1, false), ReadCompleted);
             }
         }
 
