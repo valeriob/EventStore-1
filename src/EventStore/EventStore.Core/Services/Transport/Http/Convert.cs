@@ -191,10 +191,10 @@ namespace EventStore.Core.Services.Transport.Http
         {
             var self = HostName.Combine(userHostName, "/streams/$all");
             var feed = new FeedElement();
-            feed.SetTitle(string.Format("All events"));
+            feed.SetTitle("All events");
             feed.SetId(self);
 
-            var items = result.Records.Select(rer => rer.Event).OrderByDescending(re => re.TimeStamp).ToList();
+            var items = result.Records.Reverse().Select(rer => rer.Event).ToList();
 
             feed.SetUpdated(items.Any() ? items.First().TimeStamp : DateTime.MinValue.ToUniversalTime());
             feed.SetAuthor(AtomSpecs.Author);
