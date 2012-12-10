@@ -36,6 +36,7 @@ namespace EventStore.Projections.Core.Services.Processing
     class GetAllStatesWorkItem : WorkItem
     {
         private readonly IEnvelope _envelope;
+        private readonly Guid _requestCorrelationId;
         private readonly IPublisher _publisher;
 
         private readonly
@@ -47,7 +48,7 @@ namespace EventStore.Projections.Core.Services.Processing
         private readonly string _projectionName;
 
         public GetAllStatesWorkItem(
-            IEnvelope envelope, CoreProjection projection, PartitionStateCache partitionStateCache,
+            IEnvelope envelope, Guid requestCorrelationId, CoreProjection projection, PartitionStateCache partitionStateCache,
             ProjectionNamesBuilder namesBuilder, string projectionName,
             RequestResponseDispatcher
                 <ClientMessage.ReadStreamEventsBackward, ClientMessage.ReadStreamEventsBackwardCompleted> readDispatcher,
@@ -57,6 +58,7 @@ namespace EventStore.Projections.Core.Services.Processing
             if (envelope == null) throw new ArgumentNullException("envelope");
             if (partitionStateCache == null) throw new ArgumentNullException("partitionStateCache");
             _envelope = envelope;
+            _requestCorrelationId = requestCorrelationId;
             _namesBuilder = namesBuilder;
             _projectionName = projectionName;
             _readDispatcher = readDispatcher;
@@ -66,7 +68,7 @@ namespace EventStore.Projections.Core.Services.Processing
         protected override void Load(CheckpointTag checkpointTag)
         {
             var psr = new PartitionedStateReader(
-                _publisher, _readDispatcher, checkpointTag, _namesBuilder, _projectionName);
+                _publisher, _requestCorrelationId, _readDispatcher, checkpointTag, _namesBuilder, _projectionName);
             psr.Start();
         }
     }

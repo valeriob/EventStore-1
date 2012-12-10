@@ -38,6 +38,7 @@ using EventStore.Core.Messages;
 using EventStore.Core.Messaging;
 using EventStore.Core.Services.Storage.ReaderIndex;
 using EventStore.Projections.Core.Messages;
+using EventStore.Projections.Core.Services.Processing;
 using EventStore.Projections.Core.Standard;
 
 namespace EventStore.Projections.Core.Services.Management
@@ -61,6 +62,7 @@ namespace EventStore.Projections.Core.Services.Management
                                      IHandle<CoreProjectionManagementMessage.Faulted>,
                                      IHandle<CoreProjectionManagementMessage.Prepared>,
                                      IHandle<CoreProjectionManagementMessage.StateReport>,
+                                     IHandle<PartitionedStateMessage>,
                                      IHandle<CoreProjectionManagementMessage.DebugState>,
                                      IHandle<CoreProjectionManagementMessage.StatisticsReport>
     {
@@ -79,6 +81,10 @@ namespace EventStore.Projections.Core.Services.Management
         private readonly
             RequestResponseDispatcher<ClientMessage.ReadStreamEventsBackward, ClientMessage.ReadStreamEventsBackwardCompleted>
             _readDispatcher;
+
+        private readonly RequestResponseSessionDispatcher
+                <CoreProjectionManagementMessage.GetAllStates, PartitionedStateMessage, PartitionedStateBegin,
+                    PartitionedStatePart, PartitionedStateEnd>[] _readAllStatesDispatchers;
 
         private int _readEventsBatchSize = 100;
 
@@ -101,6 +107,12 @@ namespace EventStore.Projections.Core.Services.Management
                     <ClientMessage.ReadStreamEventsBackward, ClientMessage.ReadStreamEventsBackwardCompleted>(
                     publisher, v => v.CorrelationId, v => v.CorrelationId, new PublishEnvelope(_inputQueue));
 
+            _readAllStatesDispatchers =
+                (from queue in queues 
+                select new RequestResponseSessionDispatcher
+                    <CoreProjectionManagementMessage.GetAllStates, PartitionedStateMessage, PartitionedStateBegin,
+                        PartitionedStatePart, PartitionedStateEnd>(
+                    queue, v => v.CorrelationId, v => v.CorrelationId, new PublishEnvelope(_inputQueue))).ToArray();
 
             _projectionStateHandlerFactory = new ProjectionStateHandlerFactory();
             _projections = new Dictionary<string, ManagedProjection>();
@@ -307,6 +319,13 @@ namespace EventStore.Projections.Core.Services.Management
             }
         }
 
+        public void Handle(PartitionedStateMessage message)
+        {
+            //TODO: publish to specific queue via single dispatcher?
+            foreach (var dispatcher in _readAllStatesDispatchers)
+                dispatcher.Handle(message);
+        }
+
         public void Handle(CoreProjectionManagementMessage.DebugState message)
         {
             string name;
@@ -437,17 +456,18 @@ namespace EventStore.Projections.Core.Services.Management
         private ManagedProjection CreateManagedProjectionInstance(string name)
         {
             var projectionCorrelationId = Guid.NewGuid();
-            IPublisher queue;
             if (_lastUsedQueue >= _queues.Length)
                 _lastUsedQueue = 0;
-            queue = _queues[_lastUsedQueue];
-            _lastUsedQueue++;
 
+            var queue = _queues[_lastUsedQueue];
             var managedProjectionInstance = new ManagedProjection(queue, 
-                projectionCorrelationId, name, _logger, _writeDispatcher, _readDispatcher, _inputQueue,
+                projectionCorrelationId, name, _logger, _writeDispatcher, _readDispatcher, _readAllStatesDispatchers[_lastUsedQueue], _inputQueue,
                 _projectionStateHandlerFactory);
             _projectionsMap.Add(projectionCorrelationId, name);
             _projections.Add(name, managedProjectionInstance);
+
+            _lastUsedQueue++;
+
             return managedProjectionInstance;
         }
 

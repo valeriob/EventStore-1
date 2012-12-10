@@ -67,6 +67,8 @@ namespace EventStore.Projections.Core.Services.Management
                 <ClientMessage.ReadStreamEventsBackward, ClientMessage.ReadStreamEventsBackwardCompleted>
             _readDispatcher;
 
+        private readonly RequestResponseSessionDispatcher<CoreProjectionManagementMessage.GetAllStates, PartitionedStateMessage, PartitionedStateBegin, PartitionedStatePart, PartitionedStateEnd> _readAllStatesDispatcher;
+
         private readonly
             RequestResponseDispatcher
                 <CoreProjectionManagementMessage.GetState, CoreProjectionManagementMessage.StateReport>
@@ -93,10 +95,14 @@ namespace EventStore.Projections.Core.Services.Management
             RequestResponseDispatcher<ClientMessage.WriteEvents, ClientMessage.WriteEventsCompleted> writeDispatcher,
             RequestResponseDispatcher
                 <ClientMessage.ReadStreamEventsBackward, ClientMessage.ReadStreamEventsBackwardCompleted> readDispatcher,
-            IPublisher inputQueue, ProjectionStateHandlerFactory projectionStateHandlerFactory)
+            RequestResponseSessionDispatcher
+                <CoreProjectionManagementMessage.GetAllStates, PartitionedStateMessage, PartitionedStateBegin,
+                PartitionedStatePart, PartitionedStateEnd> readAllStatesDispatcher, IPublisher inputQueue,
+            ProjectionStateHandlerFactory projectionStateHandlerFactory)
         {
             if (id == Guid.Empty) throw new ArgumentException("id");
             if (name == null) throw new ArgumentNullException("name");
+            if (readAllStatesDispatcher == null) throw new ArgumentNullException("readAllStatesDispatcher");
             if (name == "") throw new ArgumentException("name");
             _coreQueue = coreQueue;
             _id = id;
@@ -104,6 +110,7 @@ namespace EventStore.Projections.Core.Services.Management
             _logger = logger;
             _writeDispatcher = writeDispatcher;
             _readDispatcher = readDispatcher;
+            _readAllStatesDispatcher = readAllStatesDispatcher;
             _inputQueue = inputQueue;
             _projectionStateHandlerFactory = projectionStateHandlerFactory;
             _getStateDispatcher =
@@ -207,14 +214,25 @@ namespace EventStore.Projections.Core.Services.Management
         {
             if (_state >= ManagedProjectionState.Stopped)
             {
-                _coreQueue.Publish(
+                _readAllStatesDispatcher.Publish(
                     new CoreProjectionManagementMessage.GetAllStates(
-                        new PublishToWrapEnvelop(_inputQueue, message.Envelope), Guid.NewGuid(), _id));
+                        _readAllStatesDispatcher.Envelope, Guid.NewGuid(), _id),
+                    begin =>
+                    message.Envelope.ReplyWith(
+                        new ProjectionManagementMessage.ProjectionAllStatesBegin(message.CorrelationId, message.Name)),
+                    part =>
+                    message.Envelope.ReplyWith(
+                        new ProjectionManagementMessage.ProjectionAllStatesPart(
+                            message.CorrelationId, message.Name, part.Partition, part.Data)),
+                    end =>
+                    message.Envelope.ReplyWith(
+                        new ProjectionManagementMessage.ProjectionAllStatesEnd(message.CorrelationId, message.Name)));
             }
             else
             {
                 message.Envelope.ReplyWith(
-                    new ProjectionManagementMessage.ProjectionAllStatesEnd(message.CorrelationId, message.Name, new InvalidOperationException("*** UNKNOWN ***")));
+                    new ProjectionManagementMessage.ProjectionAllStatesEnd(
+                        message.CorrelationId, message.Name, new InvalidOperationException("*** UNKNOWN ***")));
             }
         }
 

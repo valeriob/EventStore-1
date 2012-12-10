@@ -352,13 +352,15 @@ namespace EventStore.Projections.Core.Services.Processing
             try
             {
                 var getAllStatesWorkItem = new GetAllStatesWorkItem(
-                    message.Envelope, this, _partitionStateCache, _namingBuilder, _name, _readDispatcher, _publisher);
+                    message.Envelope, message.CorrelationId, this, _partitionStateCache, _namingBuilder, _name,
+                    _readDispatcher, _publisher);
                 _processingQueue.EnqueueOutOfOrderTask(getAllStatesWorkItem);
                 _processingQueue.ProcessEvent();
             }
             catch (Exception ex)
             {
-                message.Envelope.ReplyWith(new ProjectionManagementMessage.ProjectionAllStatesEnd(message.CorrelationId, _name, ex));
+                message.Envelope.ReplyWith(
+                    new ProjectionManagementMessage.ProjectionAllStatesEnd(message.CorrelationId, _name, ex));
                 SetFaulted(ex);
             }
         }

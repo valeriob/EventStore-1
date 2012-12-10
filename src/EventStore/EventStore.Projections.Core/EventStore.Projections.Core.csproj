@@ -171,6 +171,7 @@
     <Compile Include="Services\RequestResponseDispatcher.cs" />
     <Compile Include="Services\RequestResponseNetworkForwarder.cs" />
     <Compile Include="Services\Processing\RequestResponseQueueForwarder.cs" />
+    <Compile Include="Services\RequestResponseSessionDispatcher.cs" />
     <Compile Include="Services\v8\DefaultV8ProjectionStateHandler.cs" />
     <Compile Include="Services\v8\V8ProjectionStateHandler.cs" />
     <Compile Include="Standard\CategorizeEventsByStreamPath.cs" />

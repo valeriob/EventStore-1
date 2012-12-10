@@ -47,11 +47,13 @@ namespace EventStore.Projections.Core.Tests.Services.partitioned_state_reader
         private string _projectionName;
         private ProjectionNamesBuilder _projectionNamesBuilder;
         private FakePublisher _bus;
+        private Guid _requestCorrelationId;
 
         [SetUp]
         public void setup()
         {
             _projectionName = "projection";
+            _requestCorrelationId = Guid.NewGuid();
             _bus = new FakePublisher();
             _requestResponseDispatcher =
                 new RequestResponseDispatcher
@@ -64,7 +66,7 @@ namespace EventStore.Projections.Core.Tests.Services.partitioned_state_reader
         public void can_be_created()
         {
             var psr = new PartitionedStateReader(
-                _bus, _requestResponseDispatcher, CheckpointTag.FromPosition(100, 50), _projectionNamesBuilder,
+                _bus, _requestCorrelationId, _requestResponseDispatcher, CheckpointTag.FromPosition(100, 50), _projectionNamesBuilder,
                 _projectionName);
         }
 
@@ -72,7 +74,7 @@ namespace EventStore.Projections.Core.Tests.Services.partitioned_state_reader
         public void null_publisher_throws_argument_null_exception()
         {
             var psr = new PartitionedStateReader(
-                null, _requestResponseDispatcher, CheckpointTag.FromPosition(100, 50), _projectionNamesBuilder,
+                null, _requestCorrelationId, _requestResponseDispatcher, CheckpointTag.FromPosition(100, 50), _projectionNamesBuilder,
                 _projectionName);
         }
 
@@ -80,35 +82,42 @@ namespace EventStore.Projections.Core.Tests.Services.partitioned_state_reader
         public void null_dispatcher_throws_argument_null_exception()
         {
             var psr = new PartitionedStateReader(
-                _bus, null, CheckpointTag.FromPosition(100, 50), _projectionNamesBuilder, _projectionName);
+                _bus, _requestCorrelationId, null, CheckpointTag.FromPosition(100, 50), _projectionNamesBuilder, _projectionName);
         }
 
-        [Test, ExpectedException(typeof (ArgumentNullException))]
+        [Test, ExpectedException(typeof(ArgumentException))]
+        public void empty_request_correlation_id_throws_argument_exception()
+        {
+            var psr = new PartitionedStateReader(
+                _bus, Guid.Empty, _requestResponseDispatcher, CheckpointTag.FromPosition(100, 50), _projectionNamesBuilder, _projectionName);
+        }
+
+        [Test, ExpectedException(typeof(ArgumentNullException))]
         public void null_at_position_throws_argument_null_exception()
         {
             var psr = new PartitionedStateReader(
-                _bus, _requestResponseDispatcher, null, _projectionNamesBuilder, _projectionName);
+                _bus, _requestCorrelationId, _requestResponseDispatcher, null, _projectionNamesBuilder, _projectionName);
         }
 
         [Test, ExpectedException(typeof (ArgumentNullException))]
         public void null_projections_name_builder_throws_argument_null_exception()
         {
             var psr = new PartitionedStateReader(
-                _bus, _requestResponseDispatcher, CheckpointTag.FromPosition(100, 50), null, _projectionName);
+                _bus, _requestCorrelationId, _requestResponseDispatcher, CheckpointTag.FromPosition(100, 50), null, _projectionName);
         }
 
         [Test, ExpectedException(typeof (ArgumentNullException))]
         public void null_projection_name_throws_argument_null_exception()
         {
             var psr = new PartitionedStateReader(
-                _bus, _requestResponseDispatcher, CheckpointTag.FromPosition(100, 50), _projectionNamesBuilder, null);
+                _bus, _requestCorrelationId, _requestResponseDispatcher, CheckpointTag.FromPosition(100, 50), _projectionNamesBuilder, null);
         }
 
         [Test, ExpectedException(typeof (ArgumentException))]
         public void empty_projection_name_throws_argument_exception()
         {
             var psr = new PartitionedStateReader(
-                _bus, _requestResponseDispatcher, CheckpointTag.FromPosition(100, 50), _projectionNamesBuilder, "");
+                _bus, _requestCorrelationId, _requestResponseDispatcher, CheckpointTag.FromPosition(100, 50), _projectionNamesBuilder, "");
         }
     }
 }

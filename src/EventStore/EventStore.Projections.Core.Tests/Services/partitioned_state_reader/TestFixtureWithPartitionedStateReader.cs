@@ -41,6 +41,7 @@ namespace EventStore.Projections.Core.Tests.Services.partitioned_state_reader
         private Exception _exception;
         protected string _catalogStream;
         private ProjectionNamesBuilder _projectionNamesBuilder;
+        private Guid _requestCorrelationId;
 
         protected override void Given()
         {
@@ -48,8 +49,9 @@ namespace EventStore.Projections.Core.Tests.Services.partitioned_state_reader
             _projectionNamesBuilder = new ProjectionNamesBuilder();
             _projectionName = "projection";
             _catalogStream = _projectionNamesBuilder.GetPartitionCatalogStreamName(_projectionName);
+            _requestCorrelationId = Guid.NewGuid();
             _psr = new PartitionedStateReader(
-                _bus, _readDispatcher, _atPosition, _projectionNamesBuilder, _projectionName);
+                _bus, _requestCorrelationId, _readDispatcher, _atPosition, _projectionNamesBuilder, _projectionName);
         }
 
         [SetUp]

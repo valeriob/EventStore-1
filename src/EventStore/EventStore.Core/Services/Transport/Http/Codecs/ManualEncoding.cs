@@ -57,17 +57,17 @@ namespace EventStore.Core.Services.Transport.Http.Codecs
 
         public string BeginChunked()
         {
-            return "[\r\n";
+            throw new NotImplementedException();
         }
 
         public string ChunkSeparator()
         {
-            return ",\r\n";
+            throw new NotImplementedException();
         }
 
         public string EndChunk()
         {
-            return "]\r\n";
+            throw new NotImplementedException();
         }
     }
 }

@@ -99,17 +99,17 @@ namespace EventStore.Core.Services.Transport.Http.Codecs
 
         public string BeginChunked()
         {
-            throw new NotImplementedException();
+            return "[\r\n";
         }
 
         public string ChunkSeparator()
         {
-            throw new NotImplementedException();
+            return ",\r\n";
         }
 
         public string EndChunk()
         {
-            throw new NotImplementedException();
+            return "]\r\n";
         }
     }
 }

@@ -47,22 +47,48 @@ namespace EventStore.Projections.Core.Services.Processing
     {
     }
 
-    public class PartitionedStateBegin : PartitionedStateReaderMessage
+    public class PartitionedStateMessage : PartitionedStateReaderMessage
     {
+        private readonly Guid _correlationId;
+
+        public PartitionedStateMessage(Guid correlationId)
+        {
+            _correlationId = correlationId;
+        }
+
+        public Guid CorrelationId
+        {
+            get { return _correlationId; }
+        }
     }
 
-    public class PartitionedStatePart : PartitionedStateReaderMessage
+    public class PartitionedStateBegin : PartitionedStateMessage
     {
+        public PartitionedStateBegin(Guid correlationId)
+            : base(correlationId)
+        {
+        }
+    }
+
+    public class PartitionedStatePart : PartitionedStateMessage
+    {
+        public readonly string Partition;
         public readonly string Data;
 
-        public PartitionedStatePart(string data)
+        public PartitionedStatePart(Guid correlationId, string partition, string data)
+            : base(correlationId)
         {
+            Partition = partition;
             Data = data;
         }
     }
 
-    public class PartitionedStateEnd : PartitionedStateReaderMessage
+    public class PartitionedStateEnd : PartitionedStateMessage
     {
+        public PartitionedStateEnd(Guid correlationId)
+            : base(correlationId)
+        {
+        }
     }
 
     public class PartitionedStateReader : IHandle<PausePartitionedStateReader>, IHandle<ResumePartitionedStateReader>
@@ -203,7 +229,7 @@ namespace EventStore.Projections.Core.Services.Processing
 
             protected override void Send()
             {
-                _reader._publisher.Publish(new PartitionedStateBegin());
+                _reader._publisher.Publish(new PartitionedStateBegin(_reader._requestCorrelationId));
                 NextStage();
             }
         }
@@ -217,7 +243,7 @@ namespace EventStore.Projections.Core.Services.Processing
 
             protected override void Send()
             {
-                _reader._publisher.Publish(new PartitionedStateEnd());
+                _reader._publisher.Publish(new PartitionedStateEnd(_reader._requestCorrelationId));
                 NextStage();
             }
         }
@@ -291,7 +317,8 @@ namespace EventStore.Projections.Core.Services.Processing
                 if (_state != null)
                 {
                     var stringState = Encoding.UTF8.GetString(_state);
-                    _reader._publisher.Publish(new PartitionedStatePart(stringState));
+                    _reader._publisher.Publish(
+                        new PartitionedStatePart(_reader._requestCorrelationId, _partition, stringState));
                 }
                 NextStage();
             }
@@ -306,20 +333,23 @@ namespace EventStore.Projections.Core.Services.Processing
         private readonly string _catalogStream;
         private bool _paused;
         private readonly string _partitionStreamNamePattern;
+        private readonly Guid _requestCorrelationId;
 
         public PartitionedStateReader(
-            IPublisher publisher,
+            IPublisher publisher, Guid requestCorrelationId,
             RequestResponseDispatcher
                 <ClientMessage.ReadStreamEventsBackward, ClientMessage.ReadStreamEventsBackwardCompleted> readDispatcher,
             CheckpointTag atPosition, ProjectionNamesBuilder namesBuilder, string projectionName)
         {
             if (publisher == null) throw new ArgumentNullException("publisher");
+            if (requestCorrelationId == Guid.Empty) throw new ArgumentException("requestCorrelationId");
             if (readDispatcher == null) throw new ArgumentNullException("readDispatcher");
             if (atPosition == null) throw new ArgumentNullException("atPosition");
             if (namesBuilder == null) throw new ArgumentNullException("namesBuilder");
             if (projectionName == null) throw new ArgumentNullException("projectionName");
             if (projectionName == "") throw new ArgumentException("projectionName");
             _publisher = publisher;
+            _requestCorrelationId = requestCorrelationId;
             _readDispatcher = readDispatcher;
             _atPosition = atPosition;
             _namesBuilder = namesBuilder;

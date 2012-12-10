@@ -28,9 +28,11 @@
 
 using System;
 using EventStore.Core.Messaging;
+using EventStore.Core.Tests.Fakes;
 using EventStore.Projections.Core.Messages;
 using EventStore.Projections.Core.Services;
 using EventStore.Projections.Core.Services.Management;
+using EventStore.Projections.Core.Services.Processing;
 using EventStore.Projections.Core.Tests.Services.core_projection;
 using NUnit.Framework;
 
@@ -40,11 +42,17 @@ namespace EventStore.Projections.Core.Tests.Services.projections_manager.managed
     public class when_loading_a_managed_projection_state : TestFixtureWithExistingEvents
     {
         private ManagedProjection _mp;
+        private RequestResponseSessionDispatcher<CoreProjectionManagementMessage.GetAllStates, PartitionedStateMessage, PartitionedStateBegin, PartitionedStatePart, PartitionedStateEnd> _sessionDispatcher;
 
         protected override void Given()
         {
-            _mp = new ManagedProjection(_bus, 
-                Guid.NewGuid(), "name", null, _writeDispatcher, _readDispatcher, _bus, _handlerFactory);
+            _sessionDispatcher =
+                new RequestResponseSessionDispatcher
+                    <CoreProjectionManagementMessage.GetAllStates, PartitionedStateMessage, PartitionedStateBegin,
+                        PartitionedStatePart, PartitionedStateEnd>(
+                    _bus, v => v.CorrelationId, v => v.CorrelationId, new PublishEnvelope(_bus));
+            _mp = new ManagedProjection(_bus,
+                Guid.NewGuid(), "name", null, _writeDispatcher, _readDispatcher, _sessionDispatcher, _bus, _handlerFactory);
         }
 
         [Test, ExpectedException(typeof (ArgumentNullException))]

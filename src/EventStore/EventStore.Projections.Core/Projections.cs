@@ -96,6 +96,8 @@ namespace EventStore.Projections.Core
                     Forwarder.Create<CoreProjectionManagementMessage.Faulted>(_managerInputQueue));
                 projectionNode.CoreOutput.Subscribe(
                     Forwarder.Create<CoreProjectionManagementMessage.Prepared>(_managerInputQueue));
+                projectionNode.CoreOutput.Subscribe(
+                    Forwarder.Create<PartitionedStateMessage>(_managerInputQueue));
 
                 projectionNode.CoreOutput.Subscribe(timerService);
 

@@ -6,6 +6,7 @@ using EventStore.Core.TransactionLog.Chunks;
 using EventStore.Projections.Core.Messages;
 using EventStore.Projections.Core.Services.Http;
 using EventStore.Projections.Core.Services.Management;
+using EventStore.Projections.Core.Services.Processing;
 
 namespace EventStore.Projections.Core
 {
@@ -44,6 +45,7 @@ namespace EventStore.Projections.Core
             mainBus.Subscribe<CoreProjectionManagementMessage.Prepared>(_projectionManager);
             mainBus.Subscribe<CoreProjectionManagementMessage.StateReport>(_projectionManager);
             mainBus.Subscribe<CoreProjectionManagementMessage.DebugState>(_projectionManager);
+            mainBus.Subscribe<PartitionedStateMessage>(_projectionManager);
             mainBus.Subscribe<CoreProjectionManagementMessage.StatisticsReport>(_projectionManager);
             mainBus.Subscribe<ClientMessage.WriteEventsCompleted>(_projectionManager);
             mainBus.Subscribe<ClientMessage.ReadStreamEventsBackwardCompleted>(_projectionManager);

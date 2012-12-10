@@ -44,17 +44,18 @@ namespace EventStore.Projections.Core.Tests.Services.partitioned_state_reader
         private Exception _exception;
         private string _catalogStream;
         private ProjectionNamesBuilder _projectionNamesBuilder;
+        private Guid _requestCorrelationId;
 
         protected override void Given()
         {
             base.Given();
             _atPosition = CheckpointTag.FromPosition(100, 50);
             _projectionName = "projection";
+            _requestCorrelationId = Guid.NewGuid();
             _projectionNamesBuilder = new ProjectionNamesBuilder();
-            _projectionName = "projection";
             _catalogStream = _projectionNamesBuilder.GetPartitionCatalogStreamName(_projectionName);
             _psr = new PartitionedStateReader(
-                _bus, _readDispatcher, _atPosition, _projectionNamesBuilder, _projectionName);
+                _bus, _requestCorrelationId, _readDispatcher, _atPosition, _projectionNamesBuilder, _projectionName);
         }
 
         [SetUp]
