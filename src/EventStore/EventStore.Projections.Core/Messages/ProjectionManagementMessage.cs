@@ -298,6 +298,37 @@ namespace EventStore.Projections.Core.Messages
             }
         }
 
+        public class GetAllStates : Message
+        {
+            private readonly IEnvelope _envelope;
+            private readonly Guid _correlationId;
+            private readonly string _name;
+
+            public GetAllStates(IEnvelope envelope, Guid correlationid, string name)
+            {
+                if (envelope == null) throw new ArgumentNullException("envelope");
+                if (name == null) throw new ArgumentNullException("name");
+                _envelope = envelope;
+                _correlationId = correlationid;
+                _name = name;
+            }
+
+            public string Name
+            {
+                get { return _name; }
+            }
+
+            public IEnvelope Envelope
+            {
+                get { return _envelope; }
+            }
+
+            public Guid CorrelationId
+            {
+                get { return _correlationId; }
+            }
+        }
+
         public class GetDebugState : Message
         {
             private readonly IEnvelope _envelope;
@@ -371,6 +402,93 @@ namespace EventStore.Projections.Core.Messages
             public string Partition
             {
                 get { return _partition; }
+            }
+        }
+
+        public class ProjectionAllStatesBegin : Message
+        {
+            private readonly Guid _correlationId;
+            private readonly string _name;
+
+            public ProjectionAllStatesBegin(Guid correlationId, string name)
+            {
+                _correlationId = correlationId;
+                _name = name;
+            }
+
+            public string Name
+            {
+                get { return _name; }
+            }
+
+            public Guid CorrelationId
+            {
+                get { return _correlationId; }
+            }
+        }
+
+        public class ProjectionAllStatesPart : Message
+        {
+            private readonly Guid _correlationId;
+            private readonly string _name;
+            private readonly string _partition;
+            private readonly string _state;
+
+            public ProjectionAllStatesPart(Guid correlationId, string name, string partition, string state)
+            {
+                _correlationId = correlationId;
+                _name = name;
+                _partition = partition;
+                _state = state;
+            }
+
+            public string Name
+            {
+                get { return _name; }
+            }
+
+            public string State
+            {
+                get { return _state; }
+            }
+
+            public string Partition
+            {
+                get { return _partition; }
+            }
+
+            public Guid CorrelationId
+            {
+                get { return _correlationId; }
+            }
+        }
+
+        public class ProjectionAllStatesEnd : Message
+        {
+            private readonly Guid _correlationId;
+            private readonly string _name;
+            private readonly Exception _exception;
+
+            public ProjectionAllStatesEnd(Guid correlationId, string name, Exception exception = null)
+            {
+                _correlationId = correlationId;
+                _name = name;
+                _exception = exception;
+            }
+
+            public string Name
+            {
+                get { return _name; }
+            }
+
+            public Exception Exception
+            {
+                get { return _exception; }
+            }
+
+            public Guid CorrelationId
+            {
+                get { return _correlationId; }
             }
         }
 

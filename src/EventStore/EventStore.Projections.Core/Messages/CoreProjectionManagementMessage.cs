@@ -144,6 +144,31 @@ namespace EventStore.Projections.Core.Messages
             }
         }
 
+        public class GetAllStates : CoreProjectionManagementMessage
+        {
+            private readonly IEnvelope _envelope;
+            private readonly Guid _correlationId;
+            private readonly string _partition;
+
+            public GetAllStates(IEnvelope envelope, Guid correlationId, Guid projectionId)
+                : base(projectionId)
+            {
+                if (envelope == null) throw new ArgumentNullException("envelope");
+                _envelope = envelope;
+                _correlationId = correlationId;
+            }
+
+            public IEnvelope Envelope
+            {
+                get { return _envelope; }
+            }
+
+            public Guid CorrelationId
+            {
+                get { return _correlationId; }
+            }
+        }
+
         public class GetDebugState : CoreProjectionManagementMessage
         {
             private readonly IEnvelope _envelope;

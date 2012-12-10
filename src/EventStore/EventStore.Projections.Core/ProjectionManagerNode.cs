@@ -34,6 +34,7 @@ namespace EventStore.Projections.Core
             mainBus.Subscribe<ProjectionManagementMessage.Delete>(_projectionManager);
             mainBus.Subscribe<ProjectionManagementMessage.GetStatistics>(_projectionManager);
             mainBus.Subscribe<ProjectionManagementMessage.GetState>(_projectionManager);
+            mainBus.Subscribe<ProjectionManagementMessage.GetAllStates>(_projectionManager);
             mainBus.Subscribe<ProjectionManagementMessage.GetDebugState>(_projectionManager);
             mainBus.Subscribe<ProjectionManagementMessage.Disable>(_projectionManager);
             mainBus.Subscribe<ProjectionManagementMessage.Enable>(_projectionManager);

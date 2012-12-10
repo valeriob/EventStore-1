@@ -43,6 +43,7 @@ namespace EventStore.Projections.Core.Services.Processing
     public class CoreProjection : IDisposable,
                                   ICoreProjection,
                                   IHandle<CoreProjectionManagementMessage.GetState>,
+                                  IHandle<CoreProjectionManagementMessage.GetAllStates>,
                                   IHandle<CoreProjectionManagementMessage.GetDebugState>,
                                   IHandle<CoreProjectionProcessingMessage.CheckpointCompleted>,
                                   IHandle<ProjectionSubscriptionMessage.CommittedEventReceived>,
@@ -98,13 +99,13 @@ namespace EventStore.Projections.Core.Services.Processing
             ILogger logger, ISourceDefinitionConfigurator sourceDefintion)
         {
             var builder = new CheckpointStrategy.Builder();
-            var namingBuilder = new ProjectionNamesBuilder();
+            _namingBuilder = new ProjectionNamesBuilder();
             sourceDefintion.ConfigureSourceProcessingStrategy(builder);
-            sourceDefintion.ConfigureSourceProcessingStrategy(namingBuilder);
-            name = namingBuilder.ForceProjectionName ?? name;
-            var stateStreamNamePattern = namingBuilder.GetStateStreamNamePattern(name);
-            var stateStreamName = namingBuilder.GetStateStreamName(name);
-            var partitionCatralogStreamName = namingBuilder.GetPartitionCatalogStreamName(name);
+            sourceDefintion.ConfigureSourceProcessingStrategy(_namingBuilder);
+            name = _namingBuilder.ForceProjectionName ?? name;
+            var stateStreamNamePattern = _namingBuilder.GetStateStreamNamePattern(name);
+            var stateStreamName = _namingBuilder.GetStateStreamName(name);
+            var partitionCatralogStreamName = _namingBuilder.GetPartitionCatalogStreamName(name);
             var checkpointStrategy = builder.Build(projectionConfig.Mode);
             return new CoreProjection(
                 name, projectionCorrelationId, publisher, projectionStateHandler, projectionConfig, readDispatcher,
@@ -345,6 +346,23 @@ namespace EventStore.Projections.Core.Services.Processing
             }
         }
 
+        public void Handle(CoreProjectionManagementMessage.GetAllStates message)
+        {
+            EnsureState(State.Running | State.Stopping | State.Stopped | State.FaultedStopping | State.Faulted);
+            try
+            {
+                var getAllStatesWorkItem = new GetAllStatesWorkItem(
+                    message.Envelope, this, _partitionStateCache, _namingBuilder, _name, _readDispatcher, _publisher);
+                _processingQueue.EnqueueOutOfOrderTask(getAllStatesWorkItem);
+                _processingQueue.ProcessEvent();
+            }
+            catch (Exception ex)
+            {
+                message.Envelope.ReplyWith(new ProjectionManagementMessage.ProjectionAllStatesEnd(message.CorrelationId, _name, ex));
+                SetFaulted(ex);
+            }
+        }
+
         public void Handle(CoreProjectionManagementMessage.GetDebugState message)
         {
             EnsureState(State.Stopped | State.Faulted);
@@ -571,6 +589,8 @@ namespace EventStore.Projections.Core.Services.Processing
 
         private readonly List<CoreProjectionManagementMessage.DebugState.Event> _eventsForDebugging =
             new List<CoreProjectionManagementMessage.DebugState.Event>();
+
+        private static ProjectionNamesBuilder _namingBuilder;
 
 
         private void InternalCollectEventForDebugging(CommittedEventWorkItem committedEventWorkItem, string partition, ProjectionSubscriptionMessage.CommittedEventReceived message)

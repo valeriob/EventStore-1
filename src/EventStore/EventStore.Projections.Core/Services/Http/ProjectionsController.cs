@@ -143,6 +143,10 @@ namespace EventStore.Projections.Core.Services.Http
                     DefaultResponseCodec), OnProjectionStateGet);
             service.RegisterControllerAction(
                 new ControllerAction(
+                    "/projection/{name}/all-states", HttpMethod.Get, Codec.NoCodecs, SupportedCodecs,
+                    DefaultResponseCodec), OnProjectionAllStatesGet);
+            service.RegisterControllerAction(
+                new ControllerAction(
                     "/projection/{name}/command/disable", HttpMethod.Post, new ICodec[] {Codec.ManualEncoding},
                     SupportedCodecs, DefaultResponseCodec), OnProjectionCommandDisable);
             service.RegisterControllerAction(
@@ -275,6 +279,15 @@ namespace EventStore.Projections.Core.Services.Http
             Publish(
                 new ProjectionManagementMessage.GetState(
                     envelope, match.BoundVariables["name"], match.BoundVariables["partition"] ?? ""));
+        }
+
+        private void OnProjectionAllStatesGet(HttpEntity http, UriTemplateMatch match)
+        {
+            //TODO: series http envelope here
+            var envelope = new SendToHttpEnvelope<ProjectionManagementMessage.ProjectionState>(
+                _networkSendQueue, http, StateFormatter, StateConfigurator, ErrorsEnvelope(http));
+            Publish(
+                new ProjectionManagementMessage.GetAllStates(envelope, Guid.NewGuid(), match.BoundVariables["name"]));
         }
 
         private void OnProjectionDebugGet(HttpEntity http, UriTemplateMatch match)

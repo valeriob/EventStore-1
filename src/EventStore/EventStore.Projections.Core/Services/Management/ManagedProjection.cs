@@ -35,6 +35,7 @@ using EventStore.Core.Messages;
 using EventStore.Core.Messaging;
 using EventStore.Core.Services.Storage.ReaderIndex;
 using EventStore.Projections.Core.Messages;
+using EventStore.Projections.Core.Messaging;
 using EventStore.Projections.Core.Services.Processing;
 using EventStore.Projections.Core.Utils;
 using System.Linq;
@@ -199,6 +200,21 @@ namespace EventStore.Projections.Core.Services.Management
             {
                 message.Envelope.ReplyWith(
                     new ProjectionManagementMessage.ProjectionState(message.Name, message.Partition, "*** UNKNOWN ***"));
+            }
+        }
+
+        public void Handle(ProjectionManagementMessage.GetAllStates message)
+        {
+            if (_state >= ManagedProjectionState.Stopped)
+            {
+                _coreQueue.Publish(
+                    new CoreProjectionManagementMessage.GetAllStates(
+                        new PublishToWrapEnvelop(_inputQueue, message.Envelope), Guid.NewGuid(), _id));
+            }
+            else
+            {
+                message.Envelope.ReplyWith(
+                    new ProjectionManagementMessage.ProjectionAllStatesEnd(message.CorrelationId, message.Name, new InvalidOperationException("*** UNKNOWN ***")));
             }
         }
 

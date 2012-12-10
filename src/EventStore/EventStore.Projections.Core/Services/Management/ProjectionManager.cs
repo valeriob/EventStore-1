@@ -52,6 +52,7 @@ namespace EventStore.Projections.Core.Services.Management
                                      IHandle<ProjectionManagementMessage.Delete>,
                                      IHandle<ProjectionManagementMessage.GetStatistics>,
                                      IHandle<ProjectionManagementMessage.GetState>,
+                                     IHandle<ProjectionManagementMessage.GetAllStates>,
                                      IHandle<ProjectionManagementMessage.GetDebugState>,
                                      IHandle<ProjectionManagementMessage.Disable>,
                                      IHandle<ProjectionManagementMessage.Enable>,
@@ -232,6 +233,16 @@ namespace EventStore.Projections.Core.Services.Management
         {
             var projection = GetProjection(message.Name);
             if (projection == null)
+                message.Envelope.ReplyWith(new ProjectionManagementMessage.NotFound());
+            else
+                projection.Handle(message);
+        }
+
+        public void Handle(ProjectionManagementMessage.GetAllStates message)
+        {
+            var projection = GetProjection(message.Name);
+            if (projection == null)
+                //TODO: handle this reply
                 message.Envelope.ReplyWith(new ProjectionManagementMessage.NotFound());
             else
                 projection.Handle(message);
