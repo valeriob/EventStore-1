@@ -27,9 +27,7 @@
 // 
 
 using System;
-using System.Threading;
 using EventStore.Common.Log;
-using EventStore.Common.Utils;
 using EventStore.Core.Bus;
 using EventStore.Core.Messages;
 using EventStore.Core.Messaging;
@@ -42,64 +40,59 @@ namespace EventStore.Core.Services
     {
         private static readonly ILogger Log = LogManager.GetLoggerFor<NetworkSendService>();
 
-        private readonly int _tcpQueueCount;
-        private readonly int _httpQueueCount;
-
-        private int _tcpQueueIndex = -1;
-
-        private readonly QueuedHandler[] _tcpQueues;
-        private readonly QueuedHandler[] _httpQueues;
+        private readonly MultiQueuedHandler _tcpMultiHandler;
+        private readonly MultiQueuedHandler _httpMultiHandler;
 
         public NetworkSendService(int tcpQueueCount, int httpQueueCount)
         {
-            Ensure.Positive(tcpQueueCount, "tcpQueueCount");
-            Ensure.Positive(httpQueueCount, "httpQueueCount");
+            _tcpMultiHandler = new MultiQueuedHandler(
+                tcpQueueCount,
+                queueNum => new QueuedHandler(new NarrowingHandler<Message, TcpMessage.TcpSend>(new TcpSendSubservice()),
+                                              string.Format("Outgoing TCP #{0}", queueNum + 1),
+                                              watchSlowMsg: true,
+                                              slowMsgThreshold: TimeSpan.FromMilliseconds(50)));
 
-            _tcpQueueCount = tcpQueueCount;
-            _httpQueueCount = httpQueueCount;
+            _httpMultiHandler = new MultiQueuedHandler(
+                httpQueueCount,
+                queueNum => 
+                {
+                    var subservice = new HttpSendSubservice();
 
-            _tcpQueues = new QueuedHandler[_tcpQueueCount];
-            for (int i = 0; i < _tcpQueueCount; ++i)
-            {
-                _tcpQueues[i] = new QueuedHandler(new NarrowingHandler<Message, TcpMessage.TcpSend>(new TcpSendSubservice()),
-                                                  string.Format("NetworkSendQueue TCP #{0}", i),
-                                                  watchSlowMsg: true,
-                                                  slowMsgThresholdMs: 50);
-                _tcpQueues[i].Start();
-            }
+                    //TODO: make it faster? can we have just dictionary map inmemory bus?
+                    var bus = new InMemoryBus(string.Format("Outgoing HTTP #{0} Bus", queueNum + 1), watchSlowMsg: false);
+                    bus.Subscribe<HttpMessage.HttpSend>(subservice);
+                    bus.Subscribe<HttpMessage.HttpSendPart>(subservice);
+                    bus.Subscribe<HttpMessage.HttpBeginSend>(subservice);
+                    bus.Subscribe<HttpMessage.HttpEndSend>(subservice);
+                    bus.Subscribe<HttpMessage.HttpDropSend>(subservice);
 
-            _httpQueues = new QueuedHandler[_httpQueueCount];
-            for (int i = 0; i < _httpQueueCount; ++i)
-            {
-                var bus = new InMemoryBus("http");
-                _httpQueues[i] = new QueuedHandler(bus, "http", true, 50);
+                    return new QueuedHandler(bus,
+                                             string.Format("Outgoing HTTP #{0}", queueNum + 1),
+                                             watchSlowMsg: true,
+                                             slowMsgThreshold: TimeSpan.FromMilliseconds(50));
+                },
+                msg =>
+                {
+                    //NOTE: subsequent messages to the same entity must be handled in order
+                    return ((HttpMessage.HttpSendMessage) msg).HttpEntityManager.GetHashCode();
+                });
 
-                var subservice = new HttpSendSubservice();
-                //TODO: make it faster? can we have just dictionary map inmemory bus?
-                bus.Subscribe<HttpMessage.HttpSend>(subservice);
-                bus.Subscribe<HttpMessage.HttpSendPart>(subservice);
-                bus.Subscribe<HttpMessage.HttpBeginSend>(subservice);
-                bus.Subscribe<HttpMessage.HttpEndSend>(subservice);
-                bus.Subscribe<HttpMessage.HttpDropSend>(subservice);
-                _httpQueues[i].Start();
-            }
+            _tcpMultiHandler.Start();
+            _httpMultiHandler.Start();
         }
 
         public void Publish(Message message)
         {
             if (message is TcpMessage.TcpSend)
             {
-                var queueNumber = ((uint) Interlocked.Increment(ref _tcpQueueIndex))%_tcpQueueCount;
-                _tcpQueues[queueNumber].Handle(message);
+                _tcpMultiHandler.Publish(message);
                 return;
             }
 
             var sendHttpMessage = message as HttpMessage.HttpSendMessage;
             if (sendHttpMessage != null)
             {
-                //NOTE: subsequent messages to the same entity must be handled in order
-                var queueNumber = (uint)sendHttpMessage.HttpEntityManager.GetHashCode() % _httpQueueCount;
-                _httpQueues[queueNumber].Handle(sendHttpMessage);
+                _httpMultiHandler.Publish(sendHttpMessage);
                 return;
             }
         }
@@ -156,21 +149,19 @@ namespace EventStore.Core.Services
 
                 message.HttpEntityManager.BeginReply(config.Code, config.Description, config.ContentType, config.Headers);
                 if (message.Envelope != null)
-                    message.Envelope.ReplyWith(
-                        new HttpMessage.HttpCompleted(message.CorrelationId, message.HttpEntityManager));
+                    message.Envelope.ReplyWith(new HttpMessage.HttpCompleted(message.CorrelationId, message.HttpEntityManager));
             }
 
             public void Handle(HttpMessage.HttpSendPart message)
             {
                 var response = message.Data;
-
                 message.HttpEntityManager.ContinueReplyTextContent(
                     response,
-                    exc => Log.ErrorException(exc, "Error occurred while replying to HTTP with message {0}", message), () =>
+                    exc => Log.ErrorException(exc, "Error occurred while replying to HTTP with message {0}", message), 
+                    () =>
                     {
                         if (message.Envelope != null)
-                            message.Envelope.ReplyWith(
-                                new HttpMessage.HttpCompleted(message.CorrelationId, message.HttpEntityManager));
+                            message.Envelope.ReplyWith(new HttpMessage.HttpCompleted(message.CorrelationId, message.HttpEntityManager));
                     });
             }
 
@@ -178,8 +169,7 @@ namespace EventStore.Core.Services
             {
                 message.HttpEntityManager.EndReply();
                 if (message.Envelope != null)
-                    message.Envelope.ReplyWith(
-                        new HttpMessage.HttpCompleted(message.CorrelationId, message.HttpEntityManager));
+                    message.Envelope.ReplyWith(new HttpMessage.HttpCompleted(message.CorrelationId, message.HttpEntityManager));
             }
 
             public void Handle(HttpMessage.HttpDropSend message)

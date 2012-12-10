@@ -56,7 +56,7 @@ namespace EventStore.Common.Utils
         {
             Ensure.NotNullOrEmpty(reason, "reason");
             
-            Console.WriteLine("Exiting... Exit reason : {0}", reason);
+            Console.WriteLine("Exiting with exitcode {0}, exit reason : {1}", exitCode, reason);
 
             LogManager.Finish();
 

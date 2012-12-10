@@ -42,7 +42,7 @@ namespace EventStore.Core.Bus
     /// </summary>
     public class QueuedHandlerMRES : IHandle<Message>, IPublisher, IMonitoredQueue, IThreadSafePublisher
     {
-        private static readonly ILogger Log = LogManager.GetLoggerFor<QueuedHandlerAutoReset>();
+        private static readonly ILogger Log = LogManager.GetLoggerFor<QueuedHandlerMRES>();
 
         public int MessageCount { get { return _queue.Count; } }
         public string Name { get { return _name; } }
@@ -59,7 +59,7 @@ namespace EventStore.Core.Bus
         private Thread _thread;
         private volatile bool _stop;
         private readonly ManualResetEventSlim _stopped = new ManualResetEventSlim(true);
-        private readonly int _threadStopWaitTimeoutMs;
+        private readonly TimeSpan _threadStopWaitTimeout;
 
         // monitoring
         private readonly QueueMonitor _queueMonitor;
@@ -85,8 +85,8 @@ namespace EventStore.Core.Bus
         public QueuedHandlerMRES(IHandle<Message> consumer,
                                  string name,
                                  bool watchSlowMsg = true,
-                                 int? slowMsgThresholdMs = null,
-                                 int threadStopWaitTimeoutMs = 10000)
+                                 TimeSpan? slowMsgThreshold = null,
+                                 TimeSpan? threadStopWaitTimeout = null)
         {
             Ensure.NotNull(consumer, "consumer");
             Ensure.NotNull(name, "name");
@@ -94,8 +94,8 @@ namespace EventStore.Core.Bus
             _consumer = consumer;
             _name = name;
             _watchSlowMsg = watchSlowMsg;
-            _slowMsgThreshold = TimeSpan.FromMilliseconds(slowMsgThresholdMs ?? InMemoryBus.DefaultSlowMessageThresholdMs);
-            _threadStopWaitTimeoutMs = threadStopWaitTimeoutMs;
+            _slowMsgThreshold = slowMsgThreshold ?? InMemoryBus.DefaultSlowMessageThreshold;
+            _threadStopWaitTimeout = threadStopWaitTimeout ?? QueuedHandler.DefaultStopWaitTimeout;
 
             _queueMonitor = QueueMonitor.Default;
         }
@@ -116,7 +116,7 @@ namespace EventStore.Core.Bus
         public void Stop()
         {
             _stop = true;
-            if (!_stopped.Wait(_threadStopWaitTimeoutMs))
+            if (!_stopped.Wait(_threadStopWaitTimeout))
                 throw new TimeoutException(string.Format("Unable to stop thread '{0}'.", _name));
             _queueMonitor.Unregister(this);
         }
@@ -125,7 +125,8 @@ namespace EventStore.Core.Bus
         {
             Thread.BeginThreadAffinity(); // ensure we are not switching between OS threads. Required at least for v8.
             _totalTimeWatch.Start();
-            var wasEmpty = true;
+            
+            bool wasEmpty = true;
             while (!_stop)
             {
                 Message msg = null;
@@ -134,18 +135,22 @@ namespace EventStore.Core.Bus
                     if (!_queue.TryDequeue(out msg))
                     {
                         if (!wasEmpty)
+                        {
                             EnterIdle();
-                        wasEmpty = true;
+                            wasEmpty = true;
+                        }
 
-                        _msgAddEvent.Wait(100);
+                        _msgAddEvent.Wait(500);
                     }
                     else
                     {
                         _msgAddEvent.Reset();
 
                         if (wasEmpty)
+                        {
                             EnterNonIdle();
-                        wasEmpty = false;
+                            wasEmpty = false;
+                        }
 
                         var cnt = _queue.Count;
                         _lifetimeQueueLengthPeak = _lifetimeQueueLengthPeak > cnt ? _lifetimeQueueLengthPeak : cnt;
@@ -218,7 +223,8 @@ namespace EventStore.Core.Bus
         {
             Ensure.NotNull(message, "message");
             _queue.Enqueue(message);
-            _msgAddEvent.Set();
+            if (!_msgAddEvent.IsSet)
+                _msgAddEvent.Set();
         }
 
         public void Handle(Message message)

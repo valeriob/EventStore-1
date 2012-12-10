@@ -42,6 +42,7 @@ namespace EventStore.Transport.Http.EntityManagement
 
         public object AsyncState { get; set; }
         public readonly HttpEntity HttpEntity;
+        public bool IsProcessing { get { return _processing != 0; } }
 
         private int _processing;
         private readonly string[] _allowedMethods;
@@ -66,13 +67,13 @@ namespace EventStore.Transport.Http.EntityManagement
             {
                 HttpEntity.Response.StatusCode = code;
             }
-            catch (ProtocolViolationException e)
-            {
-                Log.InfoException(e, "Attempt to set invalid http status code occurred");
-            }
             catch (ObjectDisposedException e)
             {
-                Log.InfoException(e, "Attempt to set http status code on disponsed response object, ignoring...");
+                Log.InfoException(e, "Attempt to set http status code on disposed response object, ignoring...");
+            }
+            catch (ProtocolViolationException e)
+            {
+                Log.InfoException(e, "Attempt to set invalid http status code occurred.");
             }
         }
 
@@ -84,12 +85,11 @@ namespace EventStore.Transport.Http.EntityManagement
             }
             catch (ObjectDisposedException e)
             {
-                Log.InfoException(e, "Attempt to set http status description on disponsed response object, ignoring...");
+                Log.InfoException(e, "Attempt to set http status description on disposed response object, ignoring...");
             }
             catch (ArgumentException e)
             {
-                Log.InfoException(e, "Description string '{0}' did not pass validation. Status description did not set",
-                                  desc);
+                Log.InfoException(e, "Description string '{0}' did not pass validation. Status description was not set.", desc);
             }
         }
 
@@ -101,15 +101,15 @@ namespace EventStore.Transport.Http.EntityManagement
             }
             catch (ObjectDisposedException e)
             {
-                Log.InfoException(e, "Attempt to set response content type on disponsed response object, ignoring...");
+                Log.InfoException(e, "Attempt to set response content type on disposed response object, ignoring...");
             }
             catch (InvalidOperationException e)
             {
-                Log.InfoException(e, "Attempt to set response content type resulted in IOE");
+                Log.InfoException(e, "Error during setting content type on HTTP response.");
             }
             catch (ArgumentOutOfRangeException e)
             {
-                Log.InfoException(e, "Invalid response type");
+                Log.InfoException(e, "Invalid response type.");
             }
         }
 
@@ -119,13 +119,17 @@ namespace EventStore.Transport.Http.EntityManagement
             {
                 HttpEntity.Response.ContentLength64 = length;
             }
+            catch (ObjectDisposedException e)
+            {
+                Log.InfoException(e, "Attempt to set content length on disposed response object, ignoring...");
+            }
             catch (InvalidOperationException e)
             {
-                Log.InfoException(e, "Content length did not set");
+                Log.InfoException(e, "Error during setting content length on HTTP response.");
             }
             catch (ArgumentOutOfRangeException e)
             {
-                Log.InfoException(e, "Attempt to set invalid value ('{0}') as content length", length);
+                Log.InfoException(e, "Attempt to set invalid value ('{0}') as content length.", length);
             }
         }
 
@@ -139,7 +143,7 @@ namespace EventStore.Transport.Http.EntityManagement
             }
             catch (Exception e)
             {
-                Log.InfoException(e, "Failed to set required response headers");
+                Log.InfoException(e, "Failed to set required response headers.");
             }
         }
 
@@ -154,7 +158,7 @@ namespace EventStore.Transport.Http.EntityManagement
             }
             catch (Exception e)
             {
-                Log.InfoException(e, "Failed to set additional response headers");
+                Log.InfoException(e, "Failed to set additional response headers.");
             }
         }
 
@@ -221,8 +225,7 @@ namespace EventStore.Transport.Http.EntityManagement
             if (isAlreadyProcessing)
                 return;
 
-            if (!BeginReply(code, description, contentType, headers)) 
-                return;
+            BeginReply(code, description, contentType, headers);
 
             if (response == null || response.Length == 0)
             {

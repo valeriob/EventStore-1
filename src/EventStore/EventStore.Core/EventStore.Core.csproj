@@ -65,6 +65,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Bus\AdHocHandler.cs" />
+    <Compile Include="Bus\MultiQueuedHandler.cs" />
     <Compile Include="Bus\QueuedHandlerSleep.cs" />
     <Compile Include="Bus\QueuedHandlerMRES.cs" />
     <Compile Include="Bus\QueuedHandler.cs" />
@@ -147,6 +148,7 @@
     <Compile Include="Services\Storage\ReaderIndex\SingleReadResult.cs" />
     <Compile Include="Services\Storage\ReaderIndex\StreamCacheInfo.cs" />
     <Compile Include="Services\Storage\ReaderIndex\StreamMetadata.cs" />
+    <Compile Include="Services\Storage\StorageReaderWorker.cs" />
     <Compile Include="Services\Storage\StorageScavenger.cs" />
     <Compile Include="Services\SystemNames.cs" />
     <Compile Include="Services\RequestManager\Managers\TransactionCommitTwoPhaseRequestManager.cs" />
@@ -160,6 +162,10 @@
     <Compile Include="Services\Transport\Http\Controllers\WebSiteController.cs" />
     <Compile Include="Services\RequestManager\Managers\TwoPhaseRequestManagerBase.cs" />
     <Compile Include="Services\RequestManager\Managers\WriteStreamTwoPhaseRequestManager.cs" />
+    <Compile Include="Services\Transport\Http\HttpRequestProcessor.cs" />
+    <Compile Include="Services\Transport\Http\IHttpService.cs" />
+    <Compile Include="Services\Transport\Http\ServiceAccessibility.cs" />
+    <Compile Include="Services\Transport\Http\UriToActionMatch.cs" />
     <Compile Include="Settings\ApplicationSettings.cs" />
     <Compile Include="Settings\VNodeSettings.cs" />
     <Compile Include="TransactionLog\Checkpoint\Checkpoint.cs" />
@@ -223,7 +229,7 @@
     <Compile Include="Services\Storage\ReaderIndex\DictionaryBasedCache.cs" />
     <Compile Include="Services\Storage\ReaderIndex\ReadIndexStats.cs" />
     <Compile Include="Services\Storage\StorageChaser.cs" />
-    <Compile Include="Services\Storage\StorageReader.cs" />
+    <Compile Include="Services\Storage\StorageReaderService.cs" />
     <Compile Include="Services\Transport\Http\Codecs\Codec.cs" />
     <Compile Include="Services\Transport\Http\ControllerAction.cs" />
     <Compile Include="Services\Transport\Http\Controllers\AdminController.cs" />
@@ -245,7 +251,7 @@
     <Compile Include="Messaging\PublishEnvelope.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Services\RequestManager\RequestManagementService.cs" />
-    <Compile Include="Services\Storage\StorageWriter.cs" />
+    <Compile Include="Services\Storage\StorageWriterService.cs" />
     <Compile Include="Services\Transport\Tcp\TcpCommand.cs" />
     <Compile Include="Messages\HttpMessage.cs" />
     <Compile Include="Services\Transport\Http\HttpService.cs" />

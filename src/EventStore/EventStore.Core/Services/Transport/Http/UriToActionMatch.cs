@@ -25,35 +25,24 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // 
+using System;
+using EventStore.Transport.Http.EntityManagement;
 
-using EventStore.Core.Bus;
-using EventStore.Core.Messages;
-using EventStore.Core.Services.Transport.Http;
-using EventStore.Core.Services.Transport.Http.Controllers;
-
-namespace EventStore.Core.Tests.Services.Transport.Http
+namespace EventStore.Core.Services.Transport.Http
 {
-    public class HttpBootstrap
+    public class UriToActionMatch
     {
-        public static void Subscribe(IBus bus, HttpService service)
-        {
-            bus.Subscribe<SystemMessage.SystemInit>(service);
-            bus.Subscribe<SystemMessage.BecomeShuttingDown>(service);
-            bus.Subscribe<HttpMessage.SendOverHttp>(service);
-            bus.Subscribe<HttpMessage.PurgeTimedOutRequests>(service);
-        }
+        public readonly UriTemplateMatch TemplateMatch;
+        public readonly ControllerAction ControllerAction;
+        public readonly Action<HttpEntity, UriTemplateMatch> RequestHandler;
 
-        public static void Unsubscribe(IBus bus, HttpService service)
+        public UriToActionMatch(UriTemplateMatch templateMatch, 
+                                ControllerAction controllerAction, 
+                                Action<HttpEntity, UriTemplateMatch> requestHandler)
         {
-            bus.Unsubscribe<SystemMessage.SystemInit>(service);
-            bus.Unsubscribe<SystemMessage.BecomeShuttingDown>(service);
-            bus.Unsubscribe<HttpMessage.SendOverHttp>(service);
-            bus.Unsubscribe<HttpMessage.PurgeTimedOutRequests>(service);
-        }
-
-        public static void RegisterPing(HttpService service)
-        {
-            service.SetupController(new PingController());
+            TemplateMatch = templateMatch;
+            ControllerAction = controllerAction;
+            RequestHandler = requestHandler;
         }
     }
 }
