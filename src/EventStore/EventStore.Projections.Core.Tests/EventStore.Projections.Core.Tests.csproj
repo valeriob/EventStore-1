@@ -126,6 +126,13 @@
     <Compile Include="Services\event_reader\stream_reader\when_onetime_reader_handles_eof.cs" />
     <Compile Include="Services\event_reader\transaction_file_reader\when_handling_eof_and_idle_eof.cs" />
     <Compile Include="Services\event_reader\transaction_file_reader\when_onetime_reader_handles_eof.cs" />
+    <Compile Include="Services\partitioned_state_reader\TestFixtureWithPartitionedStateReader.cs" />
+    <Compile Include="Services\partitioned_state_reader\when_completed_reading.cs" />
+    <Compile Include="Services\partitioned_state_reader\when_creating.cs" />
+    <Compile Include="Services\partitioned_state_reader\when_reading_catalog_stream.cs" />
+    <Compile Include="Services\partitioned_state_reader\when_reading_multi_item_catalog_stream.cs" />
+    <Compile Include="Services\partitioned_state_reader\when_reading_partition_state_stream.cs" />
+    <Compile Include="Services\partitioned_state_reader\when_starting.cs" />
     <Compile Include="Services\position_tagging\prepare_position_tagger\prepare_position_tagger.cs" />
     <Compile Include="Services\position_tagging\prepare_position_tagger\when_creating_prepare_postion_tracker.cs" />
     <Compile Include="Services\position_tagging\prepare_position_tagger\when_reinitializing_prepapre_postion_tracker.cs" />

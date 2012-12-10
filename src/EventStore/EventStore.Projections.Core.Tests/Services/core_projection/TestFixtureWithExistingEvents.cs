@@ -153,7 +153,6 @@ namespace EventStore.Projections.Core.Tests.Services.core_projection
                     || (message.FromEventNumber == -1))
                 {
                     EventLinkPair[] records = list.Safe()
-                                                  .Reverse()
                                                   .SkipWhile(v => message.FromEventNumber != -1 && v.EventNumber > message.FromEventNumber)
                                                   .Take(message.MaxCount)
                                                   .Select(x => new EventLinkPair(x, null))

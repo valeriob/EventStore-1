@@ -28,14 +28,49 @@
 
 using System;
 using System.Text;
+using EventStore.Core.Bus;
 using EventStore.Core.Messages;
+using EventStore.Core.Messaging;
 using EventStore.Core.Services.Storage.ReaderIndex;
 
 namespace EventStore.Projections.Core.Services.Processing
 {
-    public class PartitionedStateReader
+    public class PartitionedStateReaderMessage : Message
     {
+    }
+
+    public class PausePartitionedStateReader : PartitionedStateReaderMessage
+    {
+    }
+
+    public class ResumePartitionedStateReader : PartitionedStateReaderMessage
+    {
+    }
+
+    public class PartitionedStateBegin : PartitionedStateReaderMessage
+    {
+    }
+
+    public class PartitionedStatePart : PartitionedStateReaderMessage
+    {
+        public readonly string Data;
+
+        public PartitionedStatePart(string data)
+        {
+            Data = data;
+        }
+    }
+
+    public class PartitionedStateEnd : PartitionedStateReaderMessage
+    {
+    }
+
+    public class PartitionedStateReader : IHandle<PausePartitionedStateReader>, IHandle<ResumePartitionedStateReader>
+    {
+        private readonly IPublisher _publisher;
         private readonly CheckpointTag _atPosition;
+        private readonly ProjectionNamesBuilder _namesBuilder;
+        private readonly string _projectionName;
 
         private readonly
             RequestResponseDispatcher
@@ -139,18 +174,52 @@ namespace EventStore.Projections.Core.Services.Processing
                     foreach (var @event in readStreamEventsBackwardCompleted.Events)
                     {
                         var partitionName = Encoding.UTF8.GetString(@event.Event.Data);
-                        _reader._queue.Enqueue(
-                            new ReadPartitionState(
-                                Guid.NewGuid(), _reader, partitionName,
-                                -1));
+                        _reader._queue.Enqueue(new ReadPartitionState(Guid.NewGuid(), _reader, partitionName, -1));
                     }
                     if (!readStreamEventsBackwardCompleted.IsEndOfStream)
                         _reader._queue.Enqueue(
                             new ReadPartitionIndex(
                                 Guid.NewGuid(), _reader, _catalogStream,
                                 readStreamEventsBackwardCompleted.NextEventNumber));
+                    else
+                        _reader._queue.Enqueue(new EndReadPartitionedState(Guid.NewGuid(), _reader));
                 }
                 CompleteStage();
+            }
+        }
+
+        private class BeginReadPartitionedState : WorkItem
+        {
+            public BeginReadPartitionedState(object correlationId, PartitionedStateReader reader)
+                : base(correlationId, reader)
+            {
+            }
+
+            protected override void RequestRead()
+            {
+                _reader._queue.Enqueue(new ReadPartitionIndex(Guid.NewGuid(), _reader, _reader._catalogStream, -1));
+                NextStage();
+            }
+
+            protected override void Send()
+            {
+                _reader._publisher.Publish(new PartitionedStateBegin());
+                NextStage();
+            }
+        }
+
+        private class EndReadPartitionedState : WorkItem
+        {
+            public EndReadPartitionedState(object correlationId, PartitionedStateReader reader)
+                : base(correlationId, reader)
+            {
+
+            }
+
+            protected override void Send()
+            {
+                _reader._publisher.Publish(new PartitionedStateEnd());
+                NextStage();
             }
         }
 
@@ -214,38 +283,73 @@ namespace EventStore.Projections.Core.Services.Processing
             {
                 _readDispatcher.Publish(
                     new ClientMessage.ReadStreamEventsBackward(
-                        Guid.NewGuid(), _readDispatcher.Envelope, _partitionStateStream,
-                        nextEventNumber, 1, false), ReadCompleted);
+                        Guid.NewGuid(), _readDispatcher.Envelope, _partitionStateStream, nextEventNumber, 1, false),
+                    ReadCompleted);
+            }
+
+            protected override void Send()
+            {
+                var stringState = Encoding.UTF8.GetString(_state);
+                _reader._publisher.Publish(new PartitionedStatePart(stringState));
+                NextStage();
             }
         }
 
         private string MakeParitionStreamName(string partitionName)
         {
-            throw new NotImplementedException();
+            return string.Format(_partitionStreamNamePattern, partitionName);
         }
 
         private readonly StagedProcessingQueue _queue = new StagedProcessingQueue(new[] {false, true, false});
         private readonly string _catalogStream;
+        private bool _paused;
+        private readonly string _partitionStreamNamePattern;
 
         public PartitionedStateReader(
+            IPublisher publisher,
             RequestResponseDispatcher
                 <ClientMessage.ReadStreamEventsBackward, ClientMessage.ReadStreamEventsBackwardCompleted> readDispatcher,
-            CheckpointTag atPosition, string catalogStream)
+            CheckpointTag atPosition, ProjectionNamesBuilder namesBuilder, string projectionName)
         {
+            if (publisher == null) throw new ArgumentNullException("publisher");
+            if (readDispatcher == null) throw new ArgumentNullException("readDispatcher");
+            if (atPosition == null) throw new ArgumentNullException("atPosition");
+            if (namesBuilder == null) throw new ArgumentNullException("namesBuilder");
+            if (projectionName == null) throw new ArgumentNullException("projectionName");
+            if (projectionName == "") throw new ArgumentException("projectionName");
+            _publisher = publisher;
             _readDispatcher = readDispatcher;
             _atPosition = atPosition;
-            _catalogStream = catalogStream;
+            _namesBuilder = namesBuilder;
+            _projectionName = projectionName;
+            _catalogStream = namesBuilder.GetPartitionCatalogStreamName(projectionName);
+            _partitionStreamNamePattern = namesBuilder.GetStateStreamNamePattern(projectionName);
         }
 
         public void Start()
         {
-            _queue.Enqueue(new ReadPartitionIndex(Guid.NewGuid(), this, _catalogStream, -1));
+            _queue.Enqueue(new BeginReadPartitionedState(Guid.NewGuid(), this));
             Process();
         }
 
-        public void Process()
+        private void Process()
         {
             while (_queue.Process() > 0) ;
+        }
+
+        public void Handle(PausePartitionedStateReader message)
+        {
+            if (_paused)
+                throw new InvalidOperationException("Paused");
+            _paused = true;
+        }
+
+        public void Handle(ResumePartitionedStateReader message)
+        {
+            if (!_paused)
+                throw new InvalidOperationException("Not paused");
+            _paused = false;
+            Process();
         }
     }
 }
