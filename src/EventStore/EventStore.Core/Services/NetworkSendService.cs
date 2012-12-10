@@ -43,7 +43,8 @@ namespace EventStore.Core.Services
                                       IHandle<HttpMessage.HttpSend>,
                                       IHandle<HttpMessage.HttpBeginSend>,
                                       IHandle<HttpMessage.HttpSendPart>,
-                                      IHandle<HttpMessage.HttpEndSend>
+                                      IHandle<HttpMessage.HttpEndSend>,
+                                      IHandle<HttpMessage.HttpDropSend>
     {
         private static readonly ILogger Log = LogManager.GetLoggerFor<NetworkSendService>();
 
@@ -168,6 +169,14 @@ namespace EventStore.Core.Services
         public void Handle(HttpMessage.HttpEndSend message)
         {
             message.HttpEntityManager.EndReply();
+            if (message.Envelope != null)
+                message.Envelope.ReplyWith(
+                    new HttpMessage.HttpCompleted(message.CorrelationId, message.HttpEntityManager));
+        }
+
+        public void Handle(HttpMessage.HttpDropSend message)
+        {
+            message.HttpEntityManager.DropReply();
             if (message.Envelope != null)
                 message.Envelope.ReplyWith(
                     new HttpMessage.HttpCompleted(message.CorrelationId, message.HttpEntityManager));

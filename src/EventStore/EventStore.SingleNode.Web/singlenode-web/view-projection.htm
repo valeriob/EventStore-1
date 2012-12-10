@@ -58,6 +58,7 @@
                 <div class="well">
                     <div id="projection-state">
                     </div>
+                    <a id="all-states-link" href="#">/all-states</a>
                     <div id="projection-statistics">
                     </div>
                 </div>
@@ -268,6 +269,7 @@
                     $("#debug-container").html(
                         $.render.debugTemplate(projection)
                     );
+                    $("#all-states-link").attr("href", projectionStatusUrl + "/all-states");
                     delayedRequestProjection();
                 }
 

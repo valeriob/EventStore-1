@@ -146,6 +146,7 @@
     <Compile Include="Services\Storage\StorageScavenger.cs" />
     <Compile Include="Services\SystemNames.cs" />
     <Compile Include="Services\RequestManager\Managers\TransactionCommitTwoPhaseRequestManager.cs" />
+    <Compile Include="Services\Transport\Http\ChunkedSendToHttpEnvelope.cs" />
     <Compile Include="Services\Transport\Http\Codecs\CustomCodec.cs" />
     <Compile Include="Services\Transport\Http\Codecs\JsonCodec.cs" />
     <Compile Include="Services\Transport\Http\Codecs\ManualEncoding.cs" />

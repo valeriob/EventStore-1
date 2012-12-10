@@ -35,5 +35,10 @@ namespace EventStore.Transport.Http
 
         T From<T>(string text);
         string To<T>(T value);
+
+        //NOTE: this should be enough for xml/json encodings
+        string BeginChunked();
+        string ChunkSeparator();
+        string EndChunk();
     }
 }

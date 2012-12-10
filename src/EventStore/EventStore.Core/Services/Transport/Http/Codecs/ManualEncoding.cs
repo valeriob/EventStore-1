@@ -54,5 +54,20 @@ namespace EventStore.Core.Services.Transport.Http.Codecs
         {
             throw new InvalidOperationException();
         }
+
+        public string BeginChunked()
+        {
+            return "[\r\n";
+        }
+
+        public string ChunkSeparator()
+        {
+            return ",\r\n";
+        }
+
+        public string EndChunk()
+        {
+            return "]\r\n";
+        }
     }
 }

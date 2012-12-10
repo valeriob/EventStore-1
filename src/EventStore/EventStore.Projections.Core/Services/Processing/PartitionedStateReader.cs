@@ -213,7 +213,6 @@ namespace EventStore.Projections.Core.Services.Processing
             public EndReadPartitionedState(object correlationId, PartitionedStateReader reader)
                 : base(correlationId, reader)
             {
-
             }
 
             protected override void Send()
@@ -289,8 +288,11 @@ namespace EventStore.Projections.Core.Services.Processing
 
             protected override void Send()
             {
-                var stringState = Encoding.UTF8.GetString(_state);
-                _reader._publisher.Publish(new PartitionedStatePart(stringState));
+                if (_state != null)
+                {
+                    var stringState = Encoding.UTF8.GetString(_state);
+                    _reader._publisher.Publish(new PartitionedStatePart(stringState));
+                }
                 NextStage();
             }
         }

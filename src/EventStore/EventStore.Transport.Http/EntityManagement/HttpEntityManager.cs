@@ -206,6 +206,12 @@ namespace EventStore.Transport.Http.EntityManagement
             CloseConnection(e => Log.ErrorException(e, "Close connection error (after successful response write)"));
         }
 
+        public void DropReply()
+        {
+            IOStreams.SafelyDispose(HttpEntity.Response.OutputStream);
+            DropConnection();
+        }
+
         public void Reply(byte[] response,
                           int code,
                           string description,
@@ -309,6 +315,19 @@ namespace EventStore.Transport.Http.EntityManagement
             catch (Exception e)
             {
                 onError(e);
+            }
+        }
+
+        private void DropConnection()
+        {
+            try
+            {
+                _onRequestSatisfied(HttpEntity);
+                HttpEntity.Response.Abort();
+            }
+            catch (Exception e)
+            {
+                //TODO: log?
             }
         }
     }

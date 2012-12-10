@@ -284,8 +284,8 @@ namespace EventStore.Projections.Core.Services.Http
         private void OnProjectionAllStatesGet(HttpEntity http, UriTemplateMatch match)
         {
             //TODO: series http envelope here
-            var envelope = new SendToHttpEnvelope<ProjectionManagementMessage.ProjectionState>(
-                _networkSendQueue, http, StateFormatter, StateConfigurator, ErrorsEnvelope(http));
+            var envelope = new ChunkedSendToHttpEnvelope<ProjectionManagementMessage.ProjectionAllStatesBegin, ProjectionManagementMessage.ProjectionAllStatesPart, ProjectionManagementMessage.ProjectionAllStatesEnd>(
+                _networkSendQueue, http, StatePartFormatter, StateBeginConfigurator);
             Publish(
                 new ProjectionManagementMessage.GetAllStates(envelope, Guid.NewGuid(), match.BoundVariables["name"]));
         }
@@ -343,6 +343,11 @@ namespace EventStore.Projections.Core.Services.Http
                 return Configure.OkNoCache("application/json");
         }
 
+        private ResponseConfiguration StateBeginConfigurator(ICodec codec, ProjectionManagementMessage.ProjectionAllStatesBegin state)
+        {
+            return Configure.OkNoCache("application/json");
+        }
+
         private ResponseConfiguration DebugStateConfigurator(ICodec codec, ProjectionManagementMessage.ProjectionDebugState state)
         {
             return Configure.OkNoCache("application/json");
@@ -354,6 +359,11 @@ namespace EventStore.Projections.Core.Services.Http
                 return state.Exception.ToString();
             else
                 return state.State;
+        }
+
+        private string StatePartFormatter(ICodec codec, ProjectionManagementMessage.ProjectionAllStatesPart state)
+        {
+            return state.State;
         }
 
         private string DebugStateFormatter(ICodec codec, ProjectionManagementMessage.ProjectionDebugState state)

@@ -102,6 +102,14 @@ namespace EventStore.Core.Messages
             }
         }
 
+        public class HttpDropSend : HttpSendMessage
+        {
+            public HttpDropSend(Guid correlationId, IEnvelope envelope, HttpEntityManager httpEntityManager)
+                : base(correlationId, envelope, httpEntityManager)
+            {
+            }
+        }
+
         public class HttpCompleted : Message
         {
             public readonly Guid CorrelationId;

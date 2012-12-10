@@ -107,5 +107,20 @@ namespace EventStore.Core.Services.Transport.Http.Codecs
                 return null;
             }
         }
+
+        public string BeginChunked()
+        {
+            throw new NotImplementedException();
+        }
+
+        public string ChunkSeparator()
+        {
+            throw new NotImplementedException();
+        }
+
+        public string EndChunk()
+        {
+            throw new NotImplementedException();
+        }
     }
 }
