@@ -39,6 +39,7 @@ using EventStore.Core.Util;
 using EventStore.Projections.Core.Messages;
 using EventStore.Transport.Http;
 using EventStore.Transport.Http.EntityManagement;
+using Newtonsoft.Json;
 
 namespace EventStore.Projections.Core.Services.Http
 {
@@ -363,7 +364,16 @@ namespace EventStore.Projections.Core.Services.Http
 
         private string StatePartFormatter(ICodec codec, ProjectionManagementMessage.ProjectionAllStatesPart state)
         {
-            return state.State;
+            var sw = new StringWriter();
+            var writer = new JsonTextWriter(sw);
+            writer.WriteStartObject();
+            writer.WritePropertyName("key");
+            writer.WriteValue(state.Partition);
+            writer.WritePropertyName("state");
+            writer.WriteRawValue(state.State);
+            writer.WriteEndObject();
+            writer.Close();
+            return sw.ToString();
         }
 
         private string DebugStateFormatter(ICodec codec, ProjectionManagementMessage.ProjectionDebugState state)

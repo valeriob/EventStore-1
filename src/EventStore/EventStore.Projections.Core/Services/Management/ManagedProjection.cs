@@ -67,7 +67,10 @@ namespace EventStore.Projections.Core.Services.Management
                 <ClientMessage.ReadStreamEventsBackward, ClientMessage.ReadStreamEventsBackwardCompleted>
             _readDispatcher;
 
-        private readonly RequestResponseSessionDispatcher<CoreProjectionManagementMessage.GetAllStates, PartitionedStateMessage, PartitionedStateBegin, PartitionedStatePart, PartitionedStateEnd> _readAllStatesDispatcher;
+        private readonly
+            RequestResponseSessionDispatcher
+                <CoreProjectionManagementMessage.GetAllStates, PartitionedStateMessage, PartitionedStateBegin,
+                    PartitionedStatePart, PartitionedStateEnd> _readAllStatesDispatcher;
 
         private readonly
             RequestResponseDispatcher
