@@ -47,7 +47,7 @@ namespace EventStore.Projections.Core.Tests.Services.partitioned_state_reader
 
             ExistingEvent(_catalogStream, "PartitionCreated", null, _partitionName);
             ExistingEvent(
-                string.Format("$projections-{0}-{1}-state", _projectionName, _partitionName), "StateUpdate",
+                string.Format("$projections-{0}-{1}-state", _projectionName, _partitionName), "StateUpdated",
                 @"{""CommitPosition"":100, ""PreparePosition"":50}", _partitionStateData);
         }
 
