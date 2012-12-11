@@ -285,15 +285,16 @@ namespace EventStore.Projections.Core.Services.Processing
                     if (readStreamEventsBackwardCompleted.Events.Length == 1)
                     {
                         var @event = readStreamEventsBackwardCompleted.Events[0].Event;
-                        var metadata = @event.Metadata.ParseJson<CheckpointTag>();
-                        if (metadata > _reader._atPosition)
+                        if (@event.EventType == "StateUpdated")
                         {
-                            RequestNext(readStreamEventsBackwardCompleted.NextEventNumber);
-                            return; // do not complete stage yet
+                            var metadata = @event.Metadata.ParseJson<CheckpointTag>();
+                            if (metadata <= _reader._atPosition)
+                                _state = @event.Data;
+                            // we found required state record
+                            // complete stage
+                            CompleteStage();
+                            return;
                         }
-                        _state = @event.Data;
-                        // we found required state record
-                        // complete stage
                     }
                     if (!readStreamEventsBackwardCompleted.IsEndOfStream)
                     {
@@ -301,6 +302,7 @@ namespace EventStore.Projections.Core.Services.Processing
                         return; // do not complete stage yet
                     }
                 }
+                // nothing found - still complete stage
                 CompleteStage();
             }
 
