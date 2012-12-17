@@ -106,7 +106,7 @@ namespace EventStore.Projections.Core.Services.Processing
             var stateStreamNamePattern = _namingBuilder.GetStateStreamNamePattern(name);
             var stateStreamName = _namingBuilder.GetStateStreamName(name);
             var partitionCatralogStreamName = _namingBuilder.GetPartitionCatalogStreamName(name);
-            var checkpointStrategy = builder.Build(projectionConfig.Mode);
+            var checkpointStrategy = builder.Build(projectionConfig);
             return new CoreProjection(
                 name, projectionCorrelationId, publisher, projectionStateHandler, projectionConfig, readDispatcher,
                 writeDispatcher, logger, checkpointStrategy, stateStreamNamePattern, stateStreamName,
@@ -163,6 +163,7 @@ namespace EventStore.Projections.Core.Services.Processing
         private readonly HashSet<Guid> _loadStateRequests = new HashSet<Guid>();
         private bool _subscribed;
         private bool _startOnLoad;
+        private StatePartitionSelector _statePartitionSelector;
 
         private CoreProjection(
             string name, Guid projectionCorrelationId, IPublisher publisher,
@@ -195,6 +196,7 @@ namespace EventStore.Projections.Core.Services.Processing
             _readDispatcher = readDispatcher;
             _writeDispatcher = writeDispatcher;
             _checkpointStrategy = checkpointStrategy;
+            _statePartitionSelector = checkpointStrategy.CreateStatePartitionSelector(projectionStateHandler);
             _partitionStateCache = new PartitionStateCache();
             _processingQueue = projectionQueue;
             _checkpointManager = coreProjectionCheckpointManager;
@@ -250,7 +252,6 @@ namespace EventStore.Projections.Core.Services.Processing
         {
             _checkpointManager.GetStatistics(info);
             info.Status = _state.EnumVaueName() + info.Status + _processingQueue.GetStatus();
-            info.Mode = _projectionConfig.Mode;
             info.Name = _name;
             info.StateReason = "";
             info.BufferedEvents = _processingQueue.GetBufferedEventCount();
@@ -268,8 +269,7 @@ namespace EventStore.Projections.Core.Services.Processing
             try
             {
                 CheckpointTag eventTag = message.CheckpointTag;
-                string partition = _checkpointStrategy.StatePartitionSelector.GetStatePartition(message);
-                var committedEventWorkItem = new CommittedEventWorkItem(this, message, partition);
+                var committedEventWorkItem = new CommittedEventWorkItem(this, message, _statePartitionSelector);
                 _processingQueue.EnqueueTask(committedEventWorkItem, eventTag);
                 _processingQueue.ProcessEvent();
             }
@@ -300,8 +300,8 @@ namespace EventStore.Projections.Core.Services.Processing
 
         public void Handle(ProjectionSubscriptionMessage.EofReached message)
         {
-            if (_projectionConfig.Mode != ProjectionMode.OneTime)
-                throw new InvalidOperationException("_projectionConfig.Mode != ProjectionMode.OneTime");
+            if (!_projectionConfig.StopOnEof)
+                throw new InvalidOperationException("!_projectionConfig.StopOnEof");
 
             Stop();
         }
@@ -315,7 +315,7 @@ namespace EventStore.Projections.Core.Services.Processing
             EnsureState(State.Running | State.Stopping | State.Stopped | State.FaultedStopping | State.Faulted);
             try
             {
-                if (_projectionConfig.CheckpointsEnabled)
+                if (_checkpointStrategy.UseCheckpoints)
                 {
                     CheckpointTag checkpointTag = message.CheckpointTag;
                     var checkpointSuggestedWorkItem = new CheckpointSuggestedWorkItem(this, message, _checkpointManager);
@@ -639,7 +639,7 @@ namespace EventStore.Projections.Core.Services.Processing
                 {
                     var lockPartitionStateAt = partition != "" ? message.CheckpointTag : null;
                     _partitionStateCache.CacheAndLockPartitionState(partition, new PartitionStateCache.State(newState, message.CheckpointTag), lockPartitionStateAt);
-                    if (_projectionConfig.PublishStateUpdates)
+                    if (_checkpointStrategy.EmitStateUpdated)
                     {
                         PublishStateUpdate(committedEventWorkItem, partition, message, newState, oldState);
                     }
@@ -648,7 +648,8 @@ namespace EventStore.Projections.Core.Services.Processing
         }
 
         private void PublishStateUpdate(
-            CommittedEventWorkItem committedEventWorkItem, string partition, ProjectionSubscriptionMessage.CommittedEventReceived message, string newState,
+            CommittedEventWorkItem committedEventWorkItem, string partition,
+            ProjectionSubscriptionMessage.CommittedEventReceived message, string newState,
             PartitionStateCache.State oldState)
         {
             if (!string.IsNullOrEmpty(partition) && (oldState.CausedBy == null || oldState.CausedBy == _makeZeroCheckpointTag))
@@ -681,7 +682,7 @@ namespace EventStore.Projections.Core.Services.Processing
         {
             SetHandlerState(partition);
             return _projectionStateHandler.ProcessEvent(
-                message.Position, message.CheckpointTag, message.EventStreamId, message.Data.EventType,
+                partition, message.CheckpointTag, message.EventStreamId, message.Data.EventType,
                 message.EventCategory, message.Data.EventId, message.EventSequenceNumber,
                 Encoding.UTF8.GetString(message.Data.Metadata), Encoding.UTF8.GetString(message.Data.Data), out newState,
                 out emittedEvents);
@@ -775,7 +776,7 @@ namespace EventStore.Projections.Core.Services.Processing
             _processingQueue.InitializeQueue(checkpointTag);
             _expectedSubscriptionMessageSequenceNumber = 0;
             _subscribed = true;
-            bool stopOnEof = _projectionConfig.Mode == ProjectionMode.OneTime;
+            bool stopOnEof = _projectionConfig.StopOnEof;
             _publisher.Publish(
                 new ProjectionSubscriptionManagement.Subscribe(
                     _projectionCorrelationId, this, checkpointTag, _checkpointStrategy,

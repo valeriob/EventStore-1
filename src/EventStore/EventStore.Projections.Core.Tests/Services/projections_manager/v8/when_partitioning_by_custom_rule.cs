@@ -26,30 +26,33 @@
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // 
 
-using System.Linq;
-using EventStore.Core.Bus;
-using EventStore.Core.Messaging;
-using EventStore.Core.Tests.Fakes;
-using EventStore.Projections.Core.Messages;
-using EventStore.Projections.Core.Services.Management;
+using System;
 using NUnit.Framework;
 
-namespace EventStore.Projections.Core.Tests.Services.projections_manager
+namespace EventStore.Projections.Core.Tests.Services.projections_manager.v8
 {
     [TestFixture]
-    public class when_posting_an_adhoc_projection: TestFixtureWithProjectionCoreAndManagementServices
+    public class when_partitioning_by_custom_rule : TestFixtureWithJsProjection
     {
-        protected override void When()
+        protected override void Given()
         {
-            _manager.Handle(
-                new ProjectionManagementMessage.Post(
-                    new PublishEnvelope(_bus), @"fromAll().whenAny(function(s,e){return s;});", enabled: true));
+            _projection = @"
+                fromAll().partitionBy(function(event){
+                    return event.body.region;
+                }).whenAny(function(event, state) {
+                    return {};
+                });
+            ";
         }
 
-        [Test, Category("v8")]
-        public void projection_updated_is_published()
+        [Test]
+        public void get_state_partition_returns_correct_result()
         {
-            Assert.AreEqual(1, _consumer.HandledMessages.OfType<ProjectionManagementMessage.Updated>().Count());
+            var result = _stateHandler.GetStatePartition(
+                "stream1", "type1", "category", Guid.NewGuid(), 0, "metadata", @"{""region"":""Europe""}");
+
+            Assert.AreEqual("Europe", result);
         }
+
     }
 }

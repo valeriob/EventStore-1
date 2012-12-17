@@ -106,7 +106,7 @@ namespace EventStore.Projections.Core.Services.Processing
 
         public class WorkItem : StagedTask
         {
-            private Action<int> _complete;
+            private Action<int, object> _complete;
             private int _onStage;
             private readonly int _lastStage;
             protected readonly PartitionedStateReader _reader;
@@ -120,10 +120,10 @@ namespace EventStore.Projections.Core.Services.Processing
 
             protected void NextStage()
             {
-                _complete(_onStage == _lastStage ? -1 : _onStage + 1);
+                _complete(_onStage == _lastStage ? -1 : _onStage + 1, InitialCorrelationId);
             }
 
-            public override void Process(int onStage, Action<int> readyForStage)
+            public override void Process(int onStage, Action<int, object> readyForStage)
             {
                 _complete = readyForStage;
                 _onStage = onStage;
@@ -163,6 +163,7 @@ namespace EventStore.Projections.Core.Services.Processing
                 NextStage();
                 _reader.Process();
             }
+
         }
 
         private class ReadPartitionIndex : WorkItem

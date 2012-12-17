@@ -6,9 +6,16 @@ var $projections = {
         var eventHandlers = { };
         var anyEventHandlers = [];
         var rawEventHandlers = [];
-        var sources = { 
+        var getStatePartitionHandler = function () {
+            throw "GetStatePartition is not defined";
+        };
+
+        var sources = {
+            /* TODO: comment out default falses to reduce message size */
             all_streams: false, 
-            all_events: false, 
+            all_events: false,
+            by_streams: false,
+            by_custom_partitions: false,
             categories: [], 
             streams: [], 
             events: [], 
@@ -18,8 +25,10 @@ var $projections = {
                 useEventIndexes: false,
                 reorderEvents: false,
                 processingLag: 0,
+                emitStateUpdated: false,
             }, 
         };
+
         var initStateHandler = function() { return { }; };
 
         var projectionState = null;
@@ -31,6 +40,10 @@ var $projections = {
             initialize_raw: function() {
                 projectionState = initStateHandler();
                 return "OK";
+            },
+
+            get_state_partition_raw: function (event, streamId, eventType, category, sequenceNumber, metadata, log_position) {
+                return getStatePartition(event, streamId, eventType, category, sequenceNumber, metadata, log_position);
             },
 
             process_event_raw: function (event, streamId, eventType, category, sequenceNumber, metadata, log_position) {
@@ -51,7 +64,6 @@ var $projections = {
                 return sources;
             }
         };
-
 
         function on_pure(eventName, eventHandler) {
             eventHandlers[eventName] = eventHandler;
@@ -81,7 +93,49 @@ var $projections = {
              return newState;
          };
 
-        function processEvent(eventRaw, streamId, eventType, category, sequenceNumber, metadataRaw, log_position) {
+         function tryDeserializeBody(eventEnvelope) {
+             var eventRaw = eventEnvelope.bodyRaw;
+            try {
+                if (eventRaw == '')
+                    eventEnvelope.body = {};
+                else if (typeof eventRaw === "object")  //TODO: why do we need this?
+                    eventEnvelope.body = eventRaw;
+                else
+                    eventEnvelope.body = JSON.parse(eventRaw);
+            } catch (ex) {
+                eventEnvelope.jsonError = ex;
+                eventEnvelope.body = undefined;
+            }
+        }
+
+        function getStatePartition(eventRaw, streamId, eventType, category, sequenceNumber, metadataRaw) {
+
+             var eventHandler = getStatePartitionHandler;
+
+             var eventEnvelope = {
+                 body: null,
+                 bodyRaw: eventRaw,
+                 eventType: eventType,
+                 streamId: streamId,
+                 sequenceNumber: sequenceNumber,
+                 metadataRaw: metadataRaw,
+             };
+
+             tryDeserializeBody(eventEnvelope);
+
+            var partition = eventHandler(eventEnvelope);
+
+            var result;
+            //TODO: warn/disable empty string
+            if (partition === undefined || partition === null || partition === "")
+                result = "";
+            else
+                result = partition.toString();
+            return result;
+
+        }
+
+         function processEvent(eventRaw, streamId, eventType, category, sequenceNumber, metadataRaw, partition) {
 
             var eventName = eventType;
 
@@ -97,7 +151,7 @@ var $projections = {
                 streamId: streamId,
                 sequenceNumber: sequenceNumber,
                 metadataRaw: metadataRaw,
-                logPosition: log_position,
+                partition: partition,
             };
             // debug only
             for (index = 0; index < rawEventHandlers.length; index++) {
@@ -107,19 +161,9 @@ var $projections = {
 
             eventHandler = eventHandlers[eventName];
 
-            if (eventHandler !== undefined || anyEventHandlers.length > 0) {
-                try {
-                    if (eventRaw == '')
-                        eventEnvelope.body = {};
-                    else if (typeof eventRaw === "object")
-                        eventEnvelope.body = eventRaw;
-                    else
-                        eventEnvelope.body = JSON.parse(eventRaw);
-                } catch (ex) {
-                    eventEnvelope.jsonError = ex;
-                    eventEnvelope.body = undefined;
-                }
-            }
+            if (eventHandler !== undefined || anyEventHandlers.length > 0) 
+                tryDeserializeBody(eventEnvelope);
+
             for (index = 0; index < anyEventHandlers.length; index++) {
                 eventHandler = anyEventHandlers[index];
                 state = callHandler(eventHandler, state, eventEnvelope);
@@ -142,6 +186,15 @@ var $projections = {
 
         function byStream() {
             sources.by_streams = true;
+        }
+
+        function partitionBy(eventHandler) {
+            getStatePartitionHandler = eventHandler;
+            sources.by_custom_partitions = true;
+        }
+
+        function emit_state_updated() {
+            sources.options.emitStateUpdated = true;
         }
 
         function fromAll() {
@@ -171,6 +224,8 @@ var $projections = {
             fromStream: fromStream,
 
             byStream: byStream,
+            partitionBy: partitionBy,
+            emit_state_updated: emit_state_updated,
 
             emit: emit,
             options: options,

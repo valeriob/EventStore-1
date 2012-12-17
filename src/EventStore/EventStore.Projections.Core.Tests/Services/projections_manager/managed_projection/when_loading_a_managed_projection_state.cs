@@ -59,16 +59,18 @@ namespace EventStore.Projections.Core.Tests.Services.projections_manager.managed
         public void null_handler_type_throws_argument_null_exception()
         {
             _mp.InitializeNew(
-                new ProjectionManagementMessage.Post(new NoopEnvelope(), ProjectionMode.AdHoc, "name", null, @"log(1);", enabled: true),
-                () => { });
+                new ProjectionManagementMessage.Post(
+                    new NoopEnvelope(), ProjectionMode.OneTime, "name", null, @"log(1);", enabled: true,
+                    emitEnabled: false), () => { });
         }
 
         [Test, ExpectedException(typeof (ArgumentException))]
         public void empty_handler_type_throws_argument_null_exception()
         {
             _mp.InitializeNew(
-                new ProjectionManagementMessage.Post(new NoopEnvelope(), ProjectionMode.AdHoc, "name", "", @"log(1);", enabled: true),
-                () => { });
+                new ProjectionManagementMessage.Post(
+                    new NoopEnvelope(), ProjectionMode.OneTime, "name", "", @"log(1);", enabled: true,
+                    emitEnabled: false), () => { });
         }
 
         [Test, ExpectedException(typeof (ArgumentNullException))]
@@ -76,7 +78,8 @@ namespace EventStore.Projections.Core.Tests.Services.projections_manager.managed
         {
             _mp.InitializeNew(
                 new ProjectionManagementMessage.Post(
-                    new NoopEnvelope(), ProjectionMode.AdHoc, "name", "JS", query: null, enabled: true), () => { });
+                    new NoopEnvelope(), ProjectionMode.OneTime, "name", "JS", query: null, enabled: true,
+                    emitEnabled: false), () => { });
         }
     }
 }

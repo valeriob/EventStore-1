@@ -25,28 +25,27 @@
 // (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 // OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 // 
-using System.IO;
-using System.Security.Cryptography;
 
-namespace EventStore.Core.TransactionLog.Chunks
+using System.Text;
+using EventStore.Projections.Core.Messages;
+
+namespace EventStore.Projections.Core.Services.Processing
 {
-    internal class WriterWorkItem
+    public class ByHandleStatePartitionSelector : StatePartitionSelector
     {
-        public readonly FileStream Stream;
-        public readonly BinaryWriter Writer;
-        public readonly MemoryStream Buffer;
-        public readonly BinaryWriter BufferWriter;
-        public readonly MD5 MD5;
+        private readonly IProjectionStateHandler _handler;
 
-        public UnmanagedMemoryStream UnmanagedMemoryStream;
-
-        public WriterWorkItem(FileStream stream, BinaryWriter writer, MD5 md5)
+        public ByHandleStatePartitionSelector(IProjectionStateHandler handler)
         {
-            Stream = stream;
-            Writer = writer;
-            Buffer = new MemoryStream(2048);
-            BufferWriter = new BinaryWriter(Buffer);
-            MD5 = md5;
+            _handler = handler;
+        }
+
+        public override string GetStatePartition(ProjectionSubscriptionMessage.CommittedEventReceived @event)
+        {
+            return _handler.GetStatePartition(
+                @event.EventStreamId, @event.Data.EventType, @event.EventCategory, @event.Data.EventId,
+                @event.EventSequenceNumber, Encoding.UTF8.GetString(@event.Data.Metadata),
+                Encoding.UTF8.GetString(@event.Data.Data));
         }
     }
 }

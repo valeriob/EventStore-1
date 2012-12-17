@@ -32,10 +32,14 @@ function scope($on, $notify) {
     var commandHandlers = {
             initialize: function() {
                 return eventProcessor.commandHandlers.initialize_raw();
-            }, 
+            },
+
+            get_state_partition: function (json, streamId, eventType, category, sequenceNumber, metadata) {
+                return eventProcessor.commandHandlers.get_state_partition_raw(json, streamId, eventType, category, sequenceNumber, metadata);
+            },
         
-            process_event: function(json, streamId, eventType, category, sequenceNumber, metadata, log_position) {
-                return eventProcessor.commandHandlers.process_event_raw(json, streamId, eventType, category, sequenceNumber, metadata, log_position);
+            process_event: function(json, streamId, eventType, category, sequenceNumber, metadata, partition) {
+                return eventProcessor.commandHandlers.process_event_raw(json, streamId, eventType, category, sequenceNumber, metadata, partition);
             }, 
 
             get_state: function() {
@@ -91,61 +95,73 @@ function scope($on, $notify) {
         }
     }
 
+
+    function emitStateUpdated() {
+        eventProcessor.emit_state_updated();
+    }
+
+    function when(handlers) {
+        translateOn(handlers);
+        return {
+            emitStateUpdated: emitStateUpdated,
+        };
+    }
+
+    function whenAny(handler) {
+        eventProcessor.on_any(handler);
+        return {
+            emitStateUpdated: emitStateUpdated,
+        };
+    }
+
+    function foreachStream() {
+        eventProcessor.byStream();
+        // NOTE: this may be removed in the future
+        // currently we do not support foreach projections without emitStateUpdated
+        eventProcessor.emit_state_updated();
+        return {
+            when: when,
+            whenAny: whenAny,
+        };
+    }
+
+    function partitionBy(byHandler) {
+        eventProcessor.partitionBy(byHandler);
+        // NOTE: this may be removed in the future
+        // currently we do not support foreach projections without emitStateUpdated
+        eventProcessor.emit_state_updated();
+        return {
+            when: when,
+            whenAny: whenAny,
+        };
+    }
+
     function fromCategory(category) {
         eventProcessor.fromCategory(category);
         return {
-            foreachStream: function () {
-                eventProcessor.byStream();
-                return {
-                    when: function (handlers) {
-                        translateOn(handlers);
-                    },
-                    whenAny: function (handler) {
-                        eventProcessor.on_any(handler);
-                    }
-                };
-            },
-            when: function (handlers) {
-                translateOn(handlers);
-            },
-            whenAny: function (handler) {
-                eventProcessor.on_any(handler);
-            }
+            partitionBy: partitionBy,
+            foreachStream: foreachStream,
+            when: when,
+            whenAny: whenAny,
         };
     }
 
     function fromAll() {
         eventProcessor.fromAll();
         return {
-            foreachStream: function () {
-                eventProcessor.byStream();
-                return {
-                    when: function (handlers) {
-                        translateOn(handlers);
-                    },
-                    whenAny: function (handler) {
-                        eventProcessor.on_any(handler);
-                    }
-                };
-            },
-            when: function (handlers) {
-                translateOn(handlers);
-            },
-            whenAny: function (handler) {
-                eventProcessor.on_any(handler);
-            }
+            partitionBy: partitionBy,
+            when: when,
+            whenAny: whenAny,
+            foreachStream: foreachStream,
         };
     }
 
     function fromStream(stream) {
         eventProcessor.fromStream(stream);
         return {
-            when: function (handlers) {
-                translateOn(handlers);
-            },
-            whenAny: function (handler) {
-                eventProcessor.on_any(handler);
-            }
+            partitionBy: partitionBy,
+            when: when,
+            whenAny: whenAny,
         };
     }
 
@@ -153,12 +169,9 @@ function scope($on, $notify) {
         for (var i = 0; i < streams.length; i++) 
             eventProcessor.fromStream(streams[i]);
         return {
-            when: function (handlers) {
-                translateOn(handlers);
-            },
-            whenAny: function (handler) {
-                eventProcessor.on_any(handler);
-            }
+            partitionBy: partitionBy,
+            when: when,
+            whenAny: whenAny,
         };
     }
 
