@@ -40,7 +40,7 @@ namespace EventStore.Core.Bus
     /// to the consumer. It also tracks statistics about the message processing to help
     /// in identifying bottlenecks
     /// </summary>
-    public class QueuedHandlerSleep : IHandle<Message>, IPublisher, IMonitoredQueue, IThreadSafePublisher
+    public class QueuedHandlerSleep : IQueuedHandler, IHandle<Message>, IPublisher, IMonitoredQueue, IThreadSafePublisher
     {
         private static readonly ILogger Log = LogManager.GetLoggerFor<QueuedHandlerSleep>();
 
@@ -49,9 +49,9 @@ namespace EventStore.Core.Bus
 
         private readonly IHandle<Message> _consumer;
         private readonly string _name;
+        private readonly string _groupName;
 
         private readonly bool _watchSlowMsg;
-        private readonly Stopwatch _slowMsgWatch = new Stopwatch();
         private readonly TimeSpan _slowMsgThreshold;
 
         private readonly Common.Concurrent.ConcurrentQueue<Message> _queue = new Common.Concurrent.ConcurrentQueue<Message>();
@@ -85,13 +85,15 @@ namespace EventStore.Core.Bus
                                   string name,
                                   bool watchSlowMsg = true,
                                   TimeSpan? slowMsgThreshold = null,
-                                  TimeSpan? threadStopWaitTimeout = null)
+                                  TimeSpan? threadStopWaitTimeout = null,
+                                  string groupName = null)
         {
             Ensure.NotNull(consumer, "consumer");
             Ensure.NotNull(name, "name");
 
             _consumer = consumer;
             _name = name;
+            _groupName = groupName;
             _watchSlowMsg = watchSlowMsg;
             _slowMsgThreshold = slowMsgThreshold ?? InMemoryBus.DefaultSlowMessageThreshold;
             _threadStopWaitTimeout = threadStopWaitTimeout ?? QueuedHandler.DefaultStopWaitTimeout;
@@ -152,28 +154,22 @@ namespace EventStore.Core.Bus
 
                         _inProgressMsgType = msg.GetType();
 
-                        if (!_watchSlowMsg)
+                        if (_watchSlowMsg)
                         {
+                            var start = DateTime.UtcNow;
+
                             _consumer.Handle(msg);
-                            Interlocked.Increment(ref _totalItems);
+
+                            var elapsed = DateTime.UtcNow - start;
+                            if (elapsed > _slowMsgThreshold)
+                                Log.Trace("SLOW QUEUE MSG [{0}]: {1} - {2}ms. Q: {3}/{4}.", _name, _inProgressMsgType.Name, (int)elapsed.TotalMilliseconds, cnt, _queue.Count);
                         }
                         else
                         {
-                            _slowMsgWatch.Restart();
                             _consumer.Handle(msg);
-                            Interlocked.Increment(ref _totalItems);
-
-                            if (_slowMsgWatch.Elapsed > _slowMsgThreshold)
-                            {
-                                Log.Trace("SLOW QUEUE MSG [{0}]: {1} - {2}ms. Q: {3}/{4}.",
-                                          _name,
-                                          _inProgressMsgType.Name,
-                                          _slowMsgWatch.ElapsedMilliseconds,
-                                          cnt,
-                                          _queue.Count);
-                            }
                         }
 
+                        Interlocked.Increment(ref _totalItems);
                         _lastProcessedMsgType = _inProgressMsgType;
                         _inProgressMsgType = null;
                     }
@@ -239,6 +235,7 @@ namespace EventStore.Core.Bus
 
                 var stats = new QueueStats(
                     _name,
+                    _groupName,
                     _queue.Count,
                     avgItemsPerSecond,
                     avgProcessingTime,

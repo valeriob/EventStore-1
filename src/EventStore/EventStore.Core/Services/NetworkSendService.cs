@@ -47,10 +47,13 @@ namespace EventStore.Core.Services
         {
             _tcpMultiHandler = new MultiQueuedHandler(
                 tcpQueueCount,
-                queueNum => new QueuedHandler(new NarrowingHandler<Message, TcpMessage.TcpSend>(new TcpSendSubservice()),
-                                              string.Format("Outgoing TCP #{0}", queueNum + 1),
-                                              watchSlowMsg: true,
-                                              slowMsgThreshold: TimeSpan.FromMilliseconds(50)));
+                queueNum => new QueuedHandlerThreadPool(new NarrowingHandler<Message, TcpMessage.TcpSend>(new TcpSendSubservice()),
+                                                        name: string.Format("Outgoing TCP #{0}", queueNum + 1),
+                                                        groupName: "Outgoing TCP",
+                                                        watchSlowMsg: true,
+                                                        slowMsgThreshold: TimeSpan.FromMilliseconds(50)),
+                //NOTE: all messages for same connection should go to one thread
+                msg => ((TcpMessage.TcpSend)msg).ConnectionManager.GetHashCode());
 
             _httpMultiHandler = new MultiQueuedHandler(
                 httpQueueCount,
@@ -66,16 +69,14 @@ namespace EventStore.Core.Services
                     bus.Subscribe<HttpMessage.HttpEndSend>(subservice);
                     bus.Subscribe<HttpMessage.HttpDropSend>(subservice);
 
-                    return new QueuedHandler(bus,
-                                             string.Format("Outgoing HTTP #{0}", queueNum + 1),
-                                             watchSlowMsg: true,
-                                             slowMsgThreshold: TimeSpan.FromMilliseconds(50));
+                    return new QueuedHandlerThreadPool(bus,
+                                                       name: string.Format("Outgoing HTTP #{0}", queueNum + 1),
+                                                       groupName: "Outgoing HTTP",
+                                                       watchSlowMsg: true,
+                                                       slowMsgThreshold: TimeSpan.FromMilliseconds(50));
                 },
-                msg =>
-                {
-                    //NOTE: subsequent messages to the same entity must be handled in order
-                    return ((HttpMessage.HttpSendMessage) msg).HttpEntityManager.GetHashCode();
-                });
+                //NOTE: subsequent messages to the same entity must be handled in order
+                msg => ((HttpMessage.HttpSendMessage) msg).HttpEntityManager.GetHashCode());
 
             _tcpMultiHandler.Start();
             _httpMultiHandler.Start();
