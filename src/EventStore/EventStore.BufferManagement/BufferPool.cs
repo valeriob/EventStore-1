@@ -253,17 +253,17 @@ namespace EventStore.BufferManagement
                 throw new ArgumentOutOfRangeException("data");
             int copied = 0;
             int currentLocation = position;
+            int totalToBeRead = Math.Min(data.Count + position, _length) - position;
             do
             {
                 Position l = GetPositionFor(currentLocation);
                 ArraySegment<byte> current = _buffers[l.Index];
-                int bytesToRead = _chunkSize - l.Offset;
-                bytesToRead = bytesToRead > data.Count - copied ? data.Count - copied : bytesToRead;
+                int bytesToRead = Math.Min(totalToBeRead - copied, _chunkSize - l.Offset);
                 if (bytesToRead > 0)
                     Buffer.BlockCopy(current.Array, current.Offset + l.Offset, data.Array, data.Offset + copied, bytesToRead);
                 copied += bytesToRead;
                 currentLocation += bytesToRead;
-            } while (copied < data.Count);
+            } while (copied < totalToBeRead);
             return copied;            
         }
 
