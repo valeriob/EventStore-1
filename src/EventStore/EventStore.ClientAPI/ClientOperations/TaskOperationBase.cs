@@ -37,7 +37,7 @@ using EventStore.ClientAPI.Transport.Tcp;
 
 namespace EventStore.ClientAPI.ClientOperations
 {
-    internal abstract class OperationBase<TResult, TResponse>: IClientOperation 
+    internal abstract class TaskOperationBase<TResult, TResponse>: IClientOperation 
         where TResult: class
         where TResponse: class
     {
@@ -55,7 +55,7 @@ namespace EventStore.ClientAPI.ClientOperations
         protected abstract InspectionResult InspectResponse(TResponse response);
         protected abstract TResult TransformResponse(TResponse response);
 
-        protected OperationBase(ILogger log, TaskCompletionSource<TResult> source, TcpCommand requestCommand, TcpCommand responseCommand)
+        protected TaskOperationBase(ILogger log, TaskCompletionSource<TResult> source, TcpCommand requestCommand, TcpCommand responseCommand)
         {
             Ensure.NotNull(log, "log");
             Ensure.NotNull(source, "source");
