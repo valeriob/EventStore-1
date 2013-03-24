@@ -34,7 +34,7 @@ using EventStore.ClientAPI.SystemData;
 
 namespace EventStore.ClientAPI.ClientOperations
 {
-    internal class StartTransactionOperation : OperationBase<EventStoreTransaction, ClientMessage.TransactionStartCompleted>
+    internal class StartTransactionOperation : TaskOperationBase<EventStoreTransaction, ClientMessage.TransactionStartCompleted>
     {
         public override bool IsLongRunning { get { return false; } }
 

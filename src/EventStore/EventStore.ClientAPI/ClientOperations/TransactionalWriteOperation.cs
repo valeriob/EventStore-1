@@ -35,7 +35,7 @@ using EventStore.ClientAPI.SystemData;
 
 namespace EventStore.ClientAPI.ClientOperations
 {
-    internal class TransactionalWriteOperation : OperationBase<object, ClientMessage.TransactionWriteCompleted>
+    internal class TransactionalWriteOperation : TaskOperationBase<object, ClientMessage.TransactionWriteCompleted>
     {
         public override bool IsLongRunning { get { return false; } }
 

@@ -36,7 +36,7 @@ using EventStore.ClientAPI.SystemData;
 
 namespace EventStore.ClientAPI.ClientOperations
 {
-    internal class AppendToStreamOperation : OperationBase<object, ClientMessage.WriteEventsCompleted>
+    internal class AppendToStreamOperation : TaskOperationBase<object, ClientMessage.WriteEventsCompleted>
     {
         public override bool IsLongRunning { get { return false; } }
 

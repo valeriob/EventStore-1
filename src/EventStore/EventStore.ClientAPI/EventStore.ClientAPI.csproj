@@ -78,12 +78,13 @@
   <ItemGroup>
     <Compile Include="AllEventsSlice.cs" />
     <Compile Include="ClientOperations\CommitTransactionOperation.cs" />
+    <Compile Include="ClientOperations\MessagingOperationBase.cs" />
     <Compile Include="ClientOperations\SubscriptionOperation.cs" />
-    <Compile Include="ClientOperations\OperationBase.cs" />
     <Compile Include="ClientOperations\ReadAllEventsBackwardOperation.cs" />
     <Compile Include="ClientOperations\ReadAllEventsForwardOperation.cs" />
     <Compile Include="ClientOperations\ReadStreamEventsBackwardOperation.cs" />
     <Compile Include="ClientOperations\StartTransactionOperation.cs" />
+    <Compile Include="ClientOperations\TaskOperationBase.cs" />
     <Compile Include="ClientOperations\TransactionalWriteOperation.cs" />
     <Compile Include="Common\Concurrent\ConcurrentQueue.cs" />
     <Compile Include="Common\Concurrent\ConcurrentStack.cs" />

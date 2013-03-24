@@ -32,7 +32,7 @@ using EventStore.ClientAPI.SystemData;
 
 namespace EventStore.ClientAPI.ClientOperations
 {
-    internal class ReadAllEventsBackwardOperation : OperationBase<AllEventsSlice, ClientMessage.ReadAllEventsCompleted>
+    internal class ReadAllEventsBackwardOperation : TaskOperationBase<AllEventsSlice, ClientMessage.ReadAllEventsCompleted>
     {
         public override bool IsLongRunning { get { return false; } }
 

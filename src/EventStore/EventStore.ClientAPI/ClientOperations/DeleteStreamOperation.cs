@@ -34,7 +34,7 @@ using EventStore.ClientAPI.SystemData;
 
 namespace EventStore.ClientAPI.ClientOperations
 {
-    internal class DeleteStreamOperation : OperationBase<object, ClientMessage.DeleteStreamCompleted>
+    internal class DeleteStreamOperation : TaskOperationBase<object, ClientMessage.DeleteStreamCompleted>
     {
         public override bool IsLongRunning { get { return false; } }
 
